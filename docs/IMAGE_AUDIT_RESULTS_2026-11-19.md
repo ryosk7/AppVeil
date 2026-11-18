@@ -24,12 +24,16 @@ Pinned image references at scan time:
 
 A follow-up metadata-only scanner checked whether first-party maps contain nonempty `sourcesContent` (without printing the source). It found **16 Proofy frontend maps** and **72 Shipboard AI frontend maps** with embedded original source text. This does not establish whether the backend maps embed source text; the sampled first-party backend maps did not trigger the same rule. The corresponding private source repositories have `sourceMap: true` in `tsconfig.base.json`; the Dockerfile copies generated `dist` directories to the final stage. This explains why generated map files survive in production images.
 
-## Draft fixes prepared (not merged)
+## Remediation PRs merged; release image verification still required
 
 - Proofy: [PR #33](https://github.com/ryosk7/olares-patentproof/pull/33)
 - Shipboard AI: [PR #65](https://github.com/ryosk7/Shipboard-AI-Cloud/pull/65)
 
-Each PR disables Vite production maps and deletes application maps from the runtime image. Both remain draft pending verification and a new immutable release. The existing public images are unchanged.
+Both PRs were merged on 2026-11-19 JST. They disable production frontend maps and remove application map files in the private build stage before copying into the runtime stage. **Merging these changes does not change an already-published image digest.**
+
+A follow-up GHCR scan of `ghcr.io/ryosk7/shipboardai:0.4.35` (digest `sha256:cb3134ef90b3953c9f1dc0af0955bbae817955723e60e1eb6b36a0fb81ea0eb7`) still showed **229 first-party maps and 72 embedded-source maps**; this tag is not proven to have been rebuilt from the merged fix. Proofy `2.6.18` remained on its previous digest and had **88 first-party maps and 16 embedded-source maps**. See [re-audit GitHub Actions run](https://github.com/ryosk7/AppVeil/actions/runs/44355900571).
+
+A candidate-image verification gate has been proposed in [Proofy PR #34](https://github.com/ryosk7/olares-patentproof/pull/34) and [Shipboard AI PR #66](https://github.com/ryosk7/Shipboard-AI-Cloud/pull/66). It must pass before a new public image is released.
 
 ## Priority remediation recommendations
 
@@ -39,4 +43,4 @@ Each PR disables Vite production maps and deletes application maps from the runt
 4. Do not assume map deletion makes JavaScript unreadable; runtime JS is still extractable by image recipients.
 5. Treat prior public images as permanently obtainable. Rotate credentials if any were truly embedded (not established here).
 
-**No production application repository was modified by this audit.** Public image audit artifacts contain file-path findings and digests; avoid publishing source-map bytes or credential values.
+**The audit itself did not publish, retag, or change any production Docker image.** Public image audit artifacts contain file-path findings and digests; avoid publishing source-map bytes or credential values.
