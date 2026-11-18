@@ -7,10 +7,11 @@ import { scanTree, severityRank } from '../src/inspect.mjs';
 import { auditDockerfile } from '../src/dockerfile-audit.mjs';
 import { compareArtifacts } from '../src/benchmark.mjs';
 import { evaluateFiles } from '../src/reconstruction-eval.mjs';
+import { evaluateImagePolicyFile } from '../src/image-policy.mjs';
 
 const args = process.argv.slice(2);
 function usage() {
-  console.log('AppVeil 0.1.0 (experimental)\n\nUsage:\n  appveil inspect <directory> [--json] [--strict]\n  appveil inspect-image <image> [--json] [--strict]\n  appveil audit-dockerfile <Dockerfile> [--json] [--strict]\n  appveil benchmark <artifact1> <artifact2> [...] [--marker <literal>]\n  appveil evaluate-reconstruction <predictions.json> <inputs.json>\n\ninspect-image requires Docker and a locally available image; it uses docker create + docker cp, never starts the container.\nFindings are indicators, not proof that an image is secure.');
+  console.log('AppVeil 0.1.0 (experimental)\n\nUsage:\n  appveil inspect <directory> [--json] [--strict]\n  appveil inspect-image <image> [--json] [--strict]\n  appveil audit-dockerfile <Dockerfile> [--json] [--strict]\n  appveil benchmark <artifact1> <artifact2> [...] [--marker <literal>]\n  appveil evaluate-reconstruction <predictions.json> <inputs.json>\n  appveil verify-image-report <image-audit.json>\n\ninspect-image requires Docker and a locally available image; it uses docker create + docker cp, never starts the container.\nFindings are indicators, not proof that an image is secure.');
 }
 function run(command, argv) {
   const p = spawnSync(command, argv, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
@@ -29,8 +30,14 @@ function emit(findings, json, strict) {
 async function main() {
   if (!args.length || ['-h', '--help', 'help'].includes(args[0])) return usage();
   const [command, target] = args;
-  if (!target || !['inspect', 'inspect-image', 'audit-dockerfile', 'benchmark', 'evaluate-reconstruction'].includes(command)) { usage(); process.exitCode = 1; return; }
+  if (!target || !['inspect', 'inspect-image', 'audit-dockerfile', 'benchmark', 'evaluate-reconstruction', 'verify-image-report'].includes(command)) { usage(); process.exitCode = 1; return; }
   const json = args.includes('--json'), strict = args.includes('--strict');
+  if (command === 'verify-image-report') {
+    const outcome = evaluateImagePolicyFile(target);
+    console.log(JSON.stringify(outcome, null, 2));
+    if (!outcome.pass) process.exitCode = 2;
+    return;
+  }
   if (command === 'evaluate-reconstruction') {
     if (!args[2]) throw new Error('Provide both prediction and input JSON files');
     console.log(JSON.stringify(evaluateFiles(target, args[2]), null, 2));
