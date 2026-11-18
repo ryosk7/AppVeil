@@ -21,7 +21,7 @@ jobs:
           - name: Proofy
             image: ghcr.io/ryosk7/patentproof:2.6.18
           - name: Shipboard AI
-            image: ghcr.io/ryosk7/shipboardai:0.4.33
+            image: ghcr.io/ryosk7/shipboardai:0.4.35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
