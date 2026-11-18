@@ -31,7 +31,7 @@ export function scanTree(root, { maxFiles = 100000, maxDepth = 40 } = {}) {
       if (++files > maxFiles) { findings.push({ rule: 'SCAN_LIMIT', severity: 'high', path: rel, message: 'Maximum file count reached' }); return findings; }
       for (const rule of rules) if (rule.test(rel)) findings.push({ rule: rule.id, severity: rule.severity, path: rel, message: rule.message });
       // Only inspect our known app build directories. Never include embedded source text in output.
-      if (/\\.map$/i.test(rel) && /^(?:app\\/apps\\/server\\/dist|app\\/packages\\/(?:contracts|db)\\/dist|app\\/web)\\//.test(rel)) {
+      if (rel.endsWith('.map') && ['app/apps/server/dist/', 'app/packages/contracts/dist/', 'app/packages/db/dist/', 'app/web/'].some(prefix => rel.startsWith(prefix))) {
         try {
           const mapFile = path.join(dir, entry.name);
           if (lstatSync(mapFile).size <= 8 * 1024 * 1024) {
