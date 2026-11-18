@@ -1,0 +1,45 @@
+name: Public image audit (snapshot)
+on:
+  push:
+    paths:
+      - '.github/workflows/image-audit-auto.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Proofy
+            image: ghcr.io/ryosk7/patentproof:2.6.18
+          - name: Shipboard AI
+            image: ghcr.io/ryosk7/shipboardai:0.4.33
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Pull image
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: docker pull "$IMAGE"
+      - name: Record image digest and inspect contents
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' > image-digests.json
+          node bin/appveil.mjs inspect-image "$IMAGE" --json > image-audit.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: audit-${{ matrix.name }}
+          path: |
+            image-digests.json
+            image-audit.json
+          retention-days: 7
+          if-no-files-found: warn
