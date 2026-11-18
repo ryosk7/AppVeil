@@ -1,0 +1,38 @@
+name: Image audit (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Public Docker image reference (e.g. ghcr.io/ryosk7/shipboardai:0.4.33)"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate image location
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          case "$IMAGE" in
+            ghcr.io/ryosk7/patentproof:*|ghcr.io/ryosk7/shipboardai:*) ;;
+            *) echo "Only expected public image names are permitted"; exit 1 ;;
+          esac
+      - name: Pull and scan image filesystem
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          docker pull "$IMAGE"
+          node bin/appveil.mjs inspect-image "$IMAGE" --json > image-audit.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-audit
+          path: image-audit.json
+          retention-days: 7
