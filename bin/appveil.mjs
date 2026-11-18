@@ -4,10 +4,12 @@ import { mkdtempSync, readdirSync, readFileSync, lstatSync, rmSync, realpathSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { scanTree, severityRank } from '../src/inspect.mjs';
+import { auditDockerfile } from '../src/dockerfile-audit.mjs';
+import { compareArtifacts } from '../src/benchmark.mjs';
 
 const args = process.argv.slice(2);
 function usage() {
-  console.log('AppVeil 0.1.0 (experimental)\n\nUsage:\n  appveil inspect <directory> [--json] [--strict]\n  appveil inspect-image <image> [--json] [--strict]\n\ninspect-image requires Docker and a locally available image; it uses docker create + docker cp, never starts the container.\nFindings are indicators, not proof that an image is secure.');
+  console.log('AppVeil 0.1.0 (experimental)\n\nUsage:\n  appveil inspect <directory> [--json] [--strict]\n  appveil inspect-image <image> [--json] [--strict]\n  appveil audit-dockerfile <Dockerfile> [--json] [--strict]\n  appveil benchmark <artifact1> <artifact2> [...] [--marker <literal>]\n\ninspect-image requires Docker and a locally available image; it uses docker create + docker cp, never starts the container.\nFindings are indicators, not proof that an image is secure.');
 }
 function run(command, argv) {
   const p = spawnSync(command, argv, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
@@ -26,8 +28,19 @@ function emit(findings, json, strict) {
 async function main() {
   if (!args.length || ['-h', '--help', 'help'].includes(args[0])) return usage();
   const [command, target] = args;
-  if (!target || !['inspect', 'inspect-image'].includes(command)) { usage(); process.exitCode = 1; return; }
+  if (!target || !['inspect', 'inspect-image', 'audit-dockerfile', 'benchmark'].includes(command)) { usage(); process.exitCode = 1; return; }
   const json = args.includes('--json'), strict = args.includes('--strict');
+  if (command === 'audit-dockerfile') {
+    const findings = auditDockerfile(target);
+    return emit(findings, json, strict);
+  }
+  if (command === 'benchmark') {
+    const idx = args.indexOf('--marker');
+    const markers = idx >= 0 && args[idx + 1] ? [args[idx + 1]] : [];
+    const paths = args.slice(1).filter(x => !x.startsWith('--') && !markers.includes(x));
+    console.log(JSON.stringify(compareArtifacts(paths, markers), null, 2));
+    return;
+  }
   if (command === 'inspect') {
     const root = realpathSync(target);
     if (!lstatSync(root).isDirectory()) throw new Error('Target must be a directory');
