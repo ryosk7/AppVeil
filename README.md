@@ -25,6 +25,24 @@ node bin/appveil.mjs inspect-image ghcr.io/ryosk7/shipboardai:0.4.33 --strict
 
 In strict mode, high/critical indicators exit with status 2. An empty report is **not** proof of security. Scan your own images; image extraction requires disk space and access to Docker.
 
+## New research and audit tools
+
+```bash
+# Inspect a Dockerfile without pulling its image
+node bin/appveil.mjs audit-dockerfile docker/Dockerfile.server --json
+
+# Measure observability of *synthetic* JS, Wasm and native artifacts
+bash scripts/benchmark-local.sh
+
+# Measure pre-existing build artifacts, not their security
+node bin/appveil.mjs benchmark path/to/a.js path/to/module.wasm --marker somePublicSymbol
+```
+
+- [Static image audit and Dockerfile findings](docs/IMAGE_AUDIT.md)
+- [Reproducible AI reverse-engineering experiment protocol](docs/AI_REVERSE_ENGINEERING_BENCHMARK.md)
+- [Local confidential runtime architecture](docs/CONFIDENTIAL_RUNTIME.md)
+- [Manually run the public-image audit workflow](https://github.com/ryosk7/AppVeil/actions/workflows/image-audit.yml) after confirming the image tag. This workflow reports file-based indicators, not evidence of confidentiality.
+
 ## Roadmap
 
 1. **Artifact hygiene**: source map and source leakage inspections; extend to layers, common secret patterns, and signed attestations.
