@@ -45,6 +45,7 @@ node bin/appveil.mjs evaluate-reconstruction predictions.json inputs.json
 - [Static image audit and Dockerfile findings](docs/IMAGE_AUDIT.md)
 - [Reproducible AI reverse-engineering experiment protocol](docs/AI_REVERSE_ENGINEERING_BENCHMARK.md)
 - [Functional reconstruction scoring protocol](docs/RECONSTRUCTION_EVALUATION.md)
+- [Production image release verification gate](docs/RELEASE_GATE.md)
 - [Local confidential runtime architecture](docs/CONFIDENTIAL_RUNTIME.md)
 - [Manually run the public-image audit workflow](https://github.com/ryosk7/AppVeil/actions/workflows/image-audit.yml) after confirming the image tag. This workflow reports file-based indicators, not evidence of confidentiality.
 
