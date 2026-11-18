@@ -14,3 +14,10 @@ jobs:
           node-version: '24'
       - run: npm test
       - run: node bin/appveil.mjs --help
+      - name: Reproducible artifact baseline (not AI resistance)
+        run: bash scripts/benchmark-local.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-artifact-benchmark
+          path: benchmark-results.json
+          retention-days: 7
