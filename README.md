@@ -36,10 +36,15 @@ bash scripts/benchmark-local.sh
 
 # Measure pre-existing build artifacts, not their security
 node bin/appveil.mjs benchmark path/to/a.js path/to/module.wasm --marker somePublicSymbol
+
+# Score numeric predictions from an independent reconstruction trial
+node bin/appveil.mjs evaluate-reconstruction predictions.json inputs.json
 ```
 
+- [Actual Proofy & Shipboard AI public image audit results (2026-11-19)](docs/IMAGE_AUDIT_RESULTS_2026-11-19.md)
 - [Static image audit and Dockerfile findings](docs/IMAGE_AUDIT.md)
 - [Reproducible AI reverse-engineering experiment protocol](docs/AI_REVERSE_ENGINEERING_BENCHMARK.md)
+- [Functional reconstruction scoring protocol](docs/RECONSTRUCTION_EVALUATION.md)
 - [Local confidential runtime architecture](docs/CONFIDENTIAL_RUNTIME.md)
 - [Manually run the public-image audit workflow](https://github.com/ryosk7/AppVeil/actions/workflows/image-audit.yml) after confirming the image tag. This workflow reports file-based indicators, not evidence of confidentiality.
 
