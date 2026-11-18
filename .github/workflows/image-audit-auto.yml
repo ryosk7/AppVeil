@@ -1,8 +1,11 @@
 name: Public image audit (snapshot)
+# Rerun on scanner changes to check whether first-party source maps embed source bodies.
 on:
   push:
     paths:
       - '.github/workflows/image-audit-auto.yml'
+      - 'src/inspect.mjs'
+      - 'test/embedded-map.test.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,6 +37,7 @@ jobs:
         run: |
           docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' > image-digests.json
           node bin/appveil.mjs inspect-image "$IMAGE" --json > image-audit.json
+          node -e 'const f=require("./image-audit.json").findings; console.log(JSON.stringify({firstPartyEmbeddedSources:f.filter(x=>x.rule==="EMBEDDED_SOURCE_CONTENT").length, mapFiles:f.filter(x=>x.rule==="SOURCE_MAP").length}));'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
