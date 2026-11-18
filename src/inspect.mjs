@@ -30,6 +30,18 @@ export function scanTree(root, { maxFiles = 100000, maxDepth = 40 } = {}) {
       if (!entry.isFile()) continue;
       if (++files > maxFiles) { findings.push({ rule: 'SCAN_LIMIT', severity: 'high', path: rel, message: 'Maximum file count reached' }); return findings; }
       for (const rule of rules) if (rule.test(rel)) findings.push({ rule: rule.id, severity: rule.severity, path: rel, message: rule.message });
+      // Only inspect our known app build directories. Never include embedded source text in output.
+      if (/\\.map$/i.test(rel) && /^(?:app\\/apps\\/server\\/dist|app\\/packages\\/(?:contracts|db)\\/dist|app\\/web)\\//.test(rel)) {
+        try {
+          const mapFile = path.join(dir, entry.name);
+          if (lstatSync(mapFile).size <= 8 * 1024 * 1024) {
+            const json = JSON.parse(readFileSync(mapFile, 'utf8'));
+            if (Array.isArray(json.sourcesContent) && json.sourcesContent.some(v => typeof v === 'string' && v.length > 0)) {
+              findings.push({ rule: 'EMBEDDED_SOURCE_CONTENT', severity: 'critical', path: rel, message: 'Application source map includes nonempty sourcesContent (contents omitted)' });
+            }
+          } else findings.push({ rule: 'SOURCE_MAP_OVERSIZE', severity: 'medium', path: rel, message: 'Map too large for embedded-source check' });
+        } catch { findings.push({ rule: 'SOURCE_MAP_UNPARSED', severity: 'medium', path: rel, message: 'Map metadata could not be parsed' }); }
+      }
       if (/\.(?:js|mjs|cjs)$/i.test(rel)) {
         try {
           const file = path.join(dir, entry.name);
