@@ -1,0 +1,16 @@
+{
+  "name": "appveil",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "appveil": "./bin/appveil.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "inspect": "node ./bin/appveil.mjs inspect"
+  }
+}
