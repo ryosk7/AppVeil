@@ -1,0 +1,53 @@
+name: Verify published image (release gate)
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Published image with a new version tag, e.g. ghcr.io/ryosk7/proofy:2.6.19'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate registry and tag
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          if [[ ! "$IMAGE" =~ ^ghcr[.]io/ryosk7/(proofy|shipboardai):[a-zA-Z0-9._-]+$ ]]; then
+            echo "Only version-tagged proofy or shipboardai GHCR images are allowed."
+            exit 1
+          fi
+          if [[ "$IMAGE" == *:latest ]]; then
+            echo "A newly versioned image tag is required."
+            exit 1
+          fi
+      - name: Pull exact published image
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          docker pull "$IMAGE"
+          docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' > image-digests.json
+      - name: Scan and enforce first-party source exposure policy
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          node bin/appveil.mjs inspect-image "$IMAGE" --json > image-audit.json
+          node bin/appveil.mjs verify-image-report image-audit.json | tee image-policy.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verified-published-image
+          path: |
+            image-digests.json
+            image-audit.json
+            image-policy.json
+          if-no-files-found: warn
+          retention-days: 7
