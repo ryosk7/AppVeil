@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "inputType": "uint32",
+  "outputType": "uint32",
+  "expression": {
+    "op": "xor",
+    "left": {
+      "op": "add",
+      "left": {
+        "op": "mul",
+        "left": {
+          "op": "input"
+        },
+        "right": {
+          "op": "const",
+          "value": 17
+        }
+      },
+      "right": {
+        "op": "const",
+        "value": 31
+      }
+    },
+    "right": {
+      "op": "ushr",
+      "left": {
+        "op": "input"
+      },
+      "right": {
+        "op": "const",
+        "value": 3
+      }
+    }
+  }
+}
