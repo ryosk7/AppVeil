@@ -51,6 +51,7 @@ node bin/appveil.mjs local-ai-trial /tmp/synthetic.o <installed-local-ollama-mod
 - [Run a local-only AI reconstruction trial using Ollama](docs/LOCAL_AI_TRIAL.md)
 - [Verified unpublished candidate image results](docs/CANDIDATE_IMAGE_VERIFICATION_2026-11-19.md)
 - [Production image release verification gate](docs/RELEASE_GATE.md)
+- [Olares Chart reference & image release checklist](docs/OLARES_IMAGE_RELEASE.md)
 - [Local confidential runtime architecture](docs/CONFIDENTIAL_RUNTIME.md)
 - [Manually run the public-image audit workflow](https://github.com/ryosk7/AppVeil/actions/workflows/image-audit.yml) after confirming the image tag. This workflow reports file-based indicators, not evidence of confidentiality.
 
