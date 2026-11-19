@@ -19,7 +19,7 @@ jobs:
       matrix:
         include:
           - name: Proofy
-            image: ghcr.io/ryosk7/patentproof:2.6.18
+            image: ghcr.io/ryosk7/proofy:2.6.18
           - name: Shipboard AI
             image: ghcr.io/ryosk7/shipboardai:0.4.35
     steps:
@@ -37,7 +37,8 @@ jobs:
         run: |
           docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' > image-digests.json
           node bin/appveil.mjs inspect-image "$IMAGE" --json > image-audit.json
-          node -e 'const f=require("./image-audit.json").findings; console.log(JSON.stringify({firstPartyEmbeddedSources:f.filter(x=>x.rule==="EMBEDDED_SOURCE_CONTENT").length, mapFiles:f.filter(x=>x.rule==="SOURCE_MAP").length}));'
+          node bin/appveil.mjs verify-image-report image-audit.json > image-policy.json || true
+          node -e 'const p=require("./image-policy.json"); const f=require("./image-audit.json").findings; console.log(JSON.stringify({pass:p.pass,firstPartyViolations:p.violations.length,allMaps:f.filter(x=>x.rule==="SOURCE_MAP").length,firstPartyEmbeddedSources:f.filter(x=>x.rule==="EMBEDDED_SOURCE_CONTENT").length}));'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -45,5 +46,6 @@ jobs:
           path: |
             image-digests.json
             image-audit.json
+            image-policy.json
           retention-days: 7
           if-no-files-found: warn
