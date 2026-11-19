@@ -50,6 +50,8 @@ node bin/appveil.mjs local-ai-trial /tmp/synthetic.o <installed-local-ollama-mod
 - [Functional reconstruction scoring protocol](docs/RECONSTRUCTION_EVALUATION.md)
 - [Run a local-only AI reconstruction trial using Ollama](docs/LOCAL_AI_TRIAL.md)
 - [Verified unpublished candidate image results](docs/CANDIDATE_IMAGE_VERIFICATION_2026-11-19.md)
+- [Published release audit: old image digests remain affected](docs/PUBLISHED_RELEASE_VERIFICATION_2026-11-19.md)
+- [Fail-closed GitHub Actions gate for newly published image](https://github.com/ryosk7/AppVeil/actions/workflows/verify-published-image.yml)
 - [Production image release verification gate](docs/RELEASE_GATE.md)
 - [Olares Chart reference & image release checklist](docs/OLARES_IMAGE_RELEASE.md)
 - [Local confidential runtime architecture](docs/CONFIDENTIAL_RUNTIME.md)
