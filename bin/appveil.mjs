@@ -9,10 +9,11 @@ import { compareArtifacts } from '../src/benchmark.mjs';
 import { evaluateFiles } from '../src/reconstruction-eval.mjs';
 import { evaluateImagePolicyFile } from '../src/image-policy.mjs';
 import { runLocalAiTrial } from '../src/local-ai-trial.mjs';
+import { checkOlaresValuesFile } from '../src/olares-image-check.mjs';
 
 const args = process.argv.slice(2);
 function usage() {
-  console.log('AppVeil 0.1.0 (experimental)\n\nUsage:\n  appveil inspect <directory> [--json] [--strict]\n  appveil inspect-image <image> [--json] [--strict]\n  appveil audit-dockerfile <Dockerfile> [--json] [--strict]\n  appveil benchmark <artifact1> <artifact2> [...] [--marker <literal>]\n  appveil evaluate-reconstruction <predictions.json> <inputs.json>\n  appveil verify-image-report <image-audit.json>\n  appveil local-ai-trial <synthetic-artifact> <installed-ollama-model>\n\ninspect-image requires Docker and a locally available image; it uses docker create + docker cp, never starts the container.\nFindings are indicators, not proof that an image is secure.');
+  console.log('AppVeil 0.1.0 (experimental)\n\nUsage:\n  appveil inspect <directory> [--json] [--strict]\n  appveil inspect-image <image> [--json] [--strict]\n  appveil audit-dockerfile <Dockerfile> [--json] [--strict]\n  appveil benchmark <artifact1> <artifact2> [...] [--marker <literal>]\n  appveil evaluate-reconstruction <predictions.json> <inputs.json>\n  appveil verify-image-report <image-audit.json>\n  appveil local-ai-trial <synthetic-artifact> <installed-ollama-model>\n  appveil check-olares-image <values.yaml> [--previous <image-ref>] [--require-digest]\n\ninspect-image requires Docker and a locally available image; it uses docker create + docker cp, never starts the container.\nFindings are indicators, not proof that an image is secure.');
 }
 function run(command, argv) {
   const p = spawnSync(command, argv, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
@@ -31,8 +32,19 @@ function emit(findings, json, strict) {
 async function main() {
   if (!args.length || ['-h', '--help', 'help'].includes(args[0])) return usage();
   const [command, target] = args;
-  if (!target || !['inspect', 'inspect-image', 'audit-dockerfile', 'benchmark', 'evaluate-reconstruction', 'verify-image-report', 'local-ai-trial'].includes(command)) { usage(); process.exitCode = 1; return; }
+  if (!target || !['inspect', 'inspect-image', 'audit-dockerfile', 'benchmark', 'evaluate-reconstruction', 'verify-image-report', 'local-ai-trial', 'check-olares-image'].includes(command)) { usage(); process.exitCode = 1; return; }
   const json = args.includes('--json'), strict = args.includes('--strict');
+  if (command === 'check-olares-image') {
+    const index = args.indexOf('--previous');
+    if (index !== -1 && !args[index + 1]) throw new Error('Missing value for --previous');
+    const result = checkOlaresValuesFile(target, {
+      previousImage: index === -1 ? null : args[index + 1],
+      requireDigest: args.includes('--require-digest')
+    });
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.pass) process.exitCode = 2;
+    return;
+  }
   if (command === 'local-ai-trial') {
     if (!args[2]) throw new Error('Specify an installed local Ollama model name');
     console.log(JSON.stringify(await runLocalAiTrial({ artifactPath: target, model: args[2] }), null, 2));
