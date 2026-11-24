@@ -13,7 +13,7 @@
 
 ## Result
 
-Run in CI on Linux (Ubuntu runners, Node 20 and 24; see this PR's checks): **`extracted`**. Both the secret and the signing key were recovered from memory. On macOS the lab reports `not-checked` (there is no `/proc/<pid>/mem`); it does not report success or failure.
+Run in CI on Linux (Ubuntu runners, Node 20 and 24; [run 45426754299](https://github.com/ryosk7/AppVeil/actions/runs/45426754299), 127 passed and 0 skipped): **`extracted`**. Both the secret and the signing key were recovered from memory. On macOS the lab reports `not-checked` (there is no `/proc/<pid>/mem`); it does not report success or failure.
 
 ## Implications
 
