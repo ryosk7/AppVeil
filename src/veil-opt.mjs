@@ -1,5 +1,6 @@
 import { validateVeilIRv2, evaluateVeilIRv2 } from './veil-ir-v2.mjs';
 import { canonicalJson } from './veil-ir.mjs';
+import { checkEquivalence } from './veil-smt.mjs';
 
 /**
  * IR v2 optimizer with per-compilation translation validation (issue #17).
@@ -171,7 +172,7 @@ export function translationValidate(original, optimized, { samples = 2000, seed 
  * Optimize to a fixpoint (at most `rounds`), then translation-validate. Returns { ir, stats }.
  * `passes` may be overridden for testing the validator itself.
  */
-export function optimizeVeilIRv2(doc, { rounds = 8, samples = 2000, pass = optimizeOnce } = {}) {
+export function optimizeVeilIRv2(doc, { rounds = 8, samples = 2000, pass = optimizeOnce, prove = false, smtTimeoutSec = 60, smtSolver } = {}) {
   validateVeilIRv2(doc);
   let cur = doc;
   for (let i = 0; i < rounds; i++) {
@@ -180,5 +181,12 @@ export function optimizeVeilIRv2(doc, { rounds = 8, samples = 2000, pass = optim
     cur = next;
   }
   const { checked } = translationValidate(doc, cur, { samples });
-  return { ir: cur, stats: { sizeBefore: programSize(doc), sizeAfter: programSize(cur), statementsBefore: doc.body.length, statementsAfter: cur.body.length, validatedInputs: checked, validation: 'differential (boundary + seeded); not a proof' } };
+  // Optional SMT proof. A counterexample always aborts; with prove=true anything short of a proof aborts.
+  let smt = null;
+  if (prove) {
+    smt = checkEquivalence(doc, cur, { timeoutSec: smtTimeoutSec, ...(smtSolver ? { solver: smtSolver } : {}) });
+    if (smt.result === 'counterexample') throw new Error(`Translation validation failed (SMT counterexample ${JSON.stringify(smt.inputs)})`);
+    if (smt.result !== 'equivalent') throw new Error(`Equivalence not proven: ${smt.reason}`);
+  }
+  return { ir: cur, stats: { sizeBefore: programSize(doc), sizeAfter: programSize(cur), statementsBefore: doc.body.length, statementsAfter: cur.body.length, validatedInputs: checked, validation: smt ? 'differential + SMT proof (all inputs)' : 'differential (boundary + seeded); not a proof', ...(smt ? { smt: smt.result } : {}) } };
 }
