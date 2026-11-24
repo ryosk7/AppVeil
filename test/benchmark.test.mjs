@@ -18,3 +18,19 @@ test('reports reproducible artifact metrics without declaring security', () => {
     assert.match(result.warning, /NOT AI/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+test('records skipped targets as not-checked, never as produced', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'appveil-bench-'));
+  try {
+    const a = path.join(dir, 'a.js'), b = path.join(dir, 'b.js');
+    writeFileSync(a, 'x'); writeFileSync(b, 'y');
+    const result = compareArtifacts([a, b], [], { notChecked: ['wasm:clang wasm32 target unavailable'] });
+    assert.deepEqual(result.samples.map(s => s.status), ['produced', 'produced']);
+    assert.deepEqual(result.notChecked, [{ target: 'wasm', status: 'not-checked', reason: 'clang wasm32 target unavailable' }]);
+    assert.ok(!result.samples.some(s => s.type === 'wasm'));
+    assert.deepEqual(compareArtifacts([a, b]).notChecked, []);
+    for (const bad of ['wasm', ':reason', 'wasm:', 'Wasm:x', 'a b:x', `wasm:${'x'.repeat(201)}`]) {
+      assert.throws(() => compareArtifacts([a, b], [], { notChecked: [bad] }), /Invalid --not-checked/, bad);
+    }
+    assert.throws(() => compareArtifacts([a, b], [], { notChecked: ['wasm:x', 'wasm:y'] }), /Duplicate/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

@@ -74,7 +74,7 @@ async function main() {
   }
   if (command === 'audit-dockerfile') return emit(auditDockerfile(target), json, strict);
   if (command === 'benchmark') {
-    console.log(JSON.stringify(compareArtifacts(positionals, values.marker ?? []), null, 2));
+    console.log(JSON.stringify(compareArtifacts(positionals, values.marker ?? [], { notChecked: values['not-checked'] ?? [] }), null, 2));
     return;
   }
   if (command === 'inspect') {

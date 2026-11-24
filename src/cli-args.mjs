@@ -16,7 +16,7 @@ export const COMMANDS = Object.freeze({
   'inspect': { positionals: ['directory'], options: { json, strict } },
   'inspect-image': { positionals: ['image'], options: { json, strict } },
   'audit-dockerfile': { positionals: ['Dockerfile'], options: { json, strict } },
-  'benchmark': { positionals: ['artifact1', 'artifact2'], variadic: true, options: { marker: { type: 'string', multiple: true } } },
+  'benchmark': { positionals: ['artifact1', 'artifact2'], variadic: true, options: { marker: { type: 'string', multiple: true }, 'not-checked': { type: 'string', multiple: true } } },
   'evaluate-reconstruction': { positionals: ['predictions.json', 'inputs.json'], options: {} },
   'verify-image-report': { positionals: ['image-audit.json'], options: {} },
   'local-ai-trial': { positionals: ['synthetic-artifact', 'installed-ollama-model'], options: {} },

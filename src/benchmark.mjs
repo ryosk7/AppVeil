@@ -20,7 +20,25 @@ export function characterizeArtifact(filename, knownMarkers = []) {
     indicativeStringCount: (text.match(/[\x20-\x7e]{8,}/g) || []).length
   };
 }
-export function compareArtifacts(paths, markers = []) {
+const TARGET_NAME = /^[a-z][a-z0-9-]{0,31}$/;
+/** Parse `target:reason` for an artifact that was not produced, so its absence is explicit. */
+export function parseNotChecked(spec) {
+  const i = typeof spec === 'string' ? spec.indexOf(':') : -1;
+  const target = i > 0 ? spec.slice(0, i) : '', reason = i > 0 ? spec.slice(i + 1).trim() : '';
+  if (!TARGET_NAME.test(target) || !reason || reason.length > 200) throw new Error(`Invalid --not-checked value (expected <target>:<reason>): ${spec}`);
+  return { target, status: 'not-checked', reason };
+}
+export function compareArtifacts(paths, markers = [], { notChecked = [] } = {}) {
   if (paths.length < 2) throw new Error('Provide at least two artifact paths');
-  return { schemaVersion: 1, warning: 'Artifact observability metrics are NOT AI reverse engineering resistance or confidentiality guarantees.', samples: paths.map(p => characterizeArtifact(p, markers)) };
+  const skipped = notChecked.map(parseNotChecked);
+  const names = skipped.map(x => x.target);
+  if (new Set(names).size !== names.length) throw new Error('Duplicate --not-checked target');
+  const samples = paths.map(p => ({ status: 'produced', ...characterizeArtifact(p, markers) }));
+  return {
+    schemaVersion: 1,
+    warning: 'Artifact observability metrics are NOT AI reverse engineering resistance or confidentiality guarantees.',
+    samples,
+    // Targets that were attempted but not produced. Absent from `samples`, never counted as passed.
+    notChecked: skipped
+  };
 }
