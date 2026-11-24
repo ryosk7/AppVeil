@@ -24,6 +24,7 @@ export const COMMANDS = Object.freeze({
   'check-olares-image': { positionals: ['values.yaml'], options: { previous: { type: 'string' }, 'require-digest': { type: 'boolean' } } },
   'compile-ir': { positionals: ['ir.json'], options: { seed: { type: 'string' }, optimize: { type: 'boolean' } } },
   'run-ir': { positionals: ['ir.json', 'uint32-input'], options: {} },
+  'verify-chart': { positionals: ['chart.tgz'], options: { 'require-digest': { type: 'boolean' }, resolve: { type: 'boolean' }, affected: { type: 'string' } } },
   'check-equivalence': { positionals: ['a.json', 'b.json'], options: { timeout: { type: 'string' } } },
   'build': { positionals: ['source', 'out-dir'], options: { seed: { type: 'string' }, optimize: { type: 'boolean' } } },
   'verify-build': { positionals: ['out-dir', 'source'], options: {} },
