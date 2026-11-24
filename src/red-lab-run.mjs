@@ -1,10 +1,13 @@
-import { createTrial, assertAttackerIsolation, judge, destroyTrial, summarize } from './red-lab-harness.mjs';
+import { createTrial, assertAttackerIsolation, judge, destroyTrial, summarize, createOracle } from './red-lab-harness.mjs';
+import { blackBoxImitationAttack } from './red-lab-blackbox.mjs';
 import { staticDecompileAttack, dynamicTraceAttack } from './red-lab-attacks.mjs';
 
 /** Registered baseline attacks: name -> { attackClass, run(trial) -> { submission, used } }. */
 export const ATTACKS = {
   'static-decompile': { attackClass: 'static', run: trial => staticDecompileAttack(trial.attackerDir) },
-  'dynamic-trace': { attackClass: 'dynamic', run: trial => dynamicTraceAttack(trial.attackerDir) }
+  'dynamic-trace': { attackClass: 'dynamic', run: trial => dynamicTraceAttack(trial.attackerDir) },
+  // Black-box: the attacker gets only the oracle (query budget from --queries), never the artifact.
+  'blackbox-enum': { attackClass: 'black-box', run: trial => blackBoxImitationAttack(createOracle(trial), { queries: trial.manifest.budget.queries }) }
 };
 
 /** Run `trials` independent challenges for one attack and return per-trial results and a summary. */
