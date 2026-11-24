@@ -14,7 +14,8 @@ const json = { type: 'boolean' }, strict = { type: 'boolean' };
 /** Per-command positional arity and accepted options. Anything else is a usage error. */
 export const COMMANDS = Object.freeze({
   'inspect': { positionals: ['directory'], options: { json, strict } },
-  'inspect-image': { positionals: ['image'], options: { json, strict } },
+  'inspect-image': { positionals: ['image'], options: { json, strict, layers: { type: 'boolean' } } },
+  'inspect-image-archive': { positionals: ['image.tar'], options: { json, strict } },
   'audit-dockerfile': { positionals: ['Dockerfile'], options: { json, strict } },
   'benchmark': { positionals: ['artifact1', 'artifact2'], variadic: true, options: { marker: { type: 'string', multiple: true }, 'not-checked': { type: 'string', multiple: true } } },
   'evaluate-reconstruction': { positionals: ['predictions.json', 'inputs.json'], options: {} },

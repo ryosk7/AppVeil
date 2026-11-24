@@ -12,6 +12,20 @@ node bin/appveil.mjs inspect-image ghcr.io/ryosk7/shipboardai:<new-version> --js
 node bin/appveil.mjs verify-image-report image-audit.json
 ```
 
-**Important**: this policy inspects the exported final filesystem, not the full immutable image layer history. Files added and later deleted in the final stage may remain recoverable from an older layer. For production images, remove unwanted artifacts in the **build stage before** copying to the final stage, as the merged fixes are designed to do.
+## Layer and config audit
+
+The final-filesystem policy above cannot see files that were added in one layer and deleted in a later one. Run the layer audit as well:
+
+```sh
+node bin/appveil.mjs inspect-image ghcr.io/ryosk7/shipboardai:<new-version> --layers --json --strict > image-layers.json
+# or, offline, on an existing `docker save` archive:
+node bin/appveil.mjs inspect-image-archive image.tar --json --strict
+```
+
+The layer audit scans every layer, including gzip-compressed ones, using the same path and source-map rules. Each finding is labeled `present`, `overwritten` or `deleted` in the final filesystem. The image config `Env` and the build history are scanned for secret-like variable **names**; values are never printed. A layer the scanner cannot decode (for example zstd) makes the report `complete: false`, and under `--strict` that exits 1. A skipped layer is never treated as passed.
+
+On a synthetic image whose Dockerfile adds a first-party source map and then runs `rm` on it, the final-filesystem scan exits 0 and the layer audit exits 2. The map is reported as `deleted` but still recoverable from its layer.
+
+**Important**: the policy above inspects only the exported final filesystem, not the full immutable image layer history. Files added and later deleted in the final stage may remain recoverable from an older layer. For production images, remove unwanted artifacts in the **build stage before** copying to the final stage, as the merged fixes are designed to do.
 
 No previous image version can be made secret retroactively. Confirm a new immutable image digest is referenced by the Olares Chart before a security-related release announcement. An OAC upload without building a new image does not remove leaked source maps.
