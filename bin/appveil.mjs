@@ -16,6 +16,7 @@ import { auditImageArchiveFile } from '../src/oci-layers.mjs';
 import { compileVeilIRToWasm, wasmDigest } from '../src/veil-wasm.mjs';
 import { compileVeilIRv2, evaluateVeilIRv2, loadVeilBytecodeV2, executeVeilBytecodeV2 } from '../src/veil-ir-v2.mjs';
 import { compileTypeScriptSubset } from '../src/ts-frontend.mjs';
+import { optimizeVeilIRv2 } from '../src/veil-opt.mjs';
 import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
@@ -55,8 +56,11 @@ async function main() {
   const json = values.json === true, strict = values.strict === true;
   if (command === 'compile-ts') {
     const seed = values.seed === undefined ? 0 : parseUint32Decimal(values.seed, '--seed');
-    const { ir, outputMap, functionName } = compileTypeScriptSubset(readFileSync(target, 'utf8'));
-    console.log(JSON.stringify(values.bytecode ? compileVeilIRv2(ir, { seed }) : { functionName, outputMap, ir }, null, 2));
+    const compiled = compileTypeScriptSubset(readFileSync(target, 'utf8'));
+    // --optimize runs the optimizer, which aborts unless translation validation passes.
+    const opt = values.optimize ? optimizeVeilIRv2(compiled.ir) : null;
+    const ir = opt ? opt.ir : compiled.ir;
+    console.log(JSON.stringify(values.bytecode ? compileVeilIRv2(ir, { seed }) : { functionName: compiled.functionName, outputMap: compiled.outputMap, ir, ...(opt ? { optimization: opt.stats } : {}) }, null, 2));
     return;
   }
   if (command === 'compile-ir-wasm') {
@@ -82,7 +86,7 @@ async function main() {
     const parsed = JSON.parse(readFileSync(target, 'utf8'));
     // Version 2 documents take a JSON object of named inputs (run-ir) or a positional JSON array (run-bytecode).
     if (parsed?.schemaVersion === 2 || parsed?.version === 2) {
-      if (command === 'compile-ir') { console.log(JSON.stringify(compileVeilIRv2(parsed, { seed }), null, 2)); return; }
+      if (command === 'compile-ir') { console.log(JSON.stringify(compileVeilIRv2(values.optimize ? optimizeVeilIRv2(parsed).ir : parsed, { seed }), null, 2)); return; }
       let inputs;
       try { inputs = JSON.parse(positionals[1]); } catch { throw new UsageError('v2 programs take inputs as JSON, e.g. \'{"x":1}\' (run-ir) or \'[1,true]\' (run-bytecode)'); }
       const out = command === 'run-ir' ? evaluateVeilIRv2(parsed, inputs) : executeVeilBytecodeV2(loadVeilBytecodeV2(parsed), inputs);
@@ -90,7 +94,7 @@ async function main() {
       return;
     }
     const input = command === 'compile-ir' ? undefined : parseUint32Decimal(positionals[1], 'input');
-    if (command === 'compile-ir') console.log(JSON.stringify(compileVeilIR(parsed, { seed }), null, 2));
+    if (command === 'compile-ir') { if (values.optimize) throw new UsageError('--optimize requires an IR v2 document'); console.log(JSON.stringify(compileVeilIR(parsed, { seed }), null, 2)); }
     else console.log(command === 'run-ir' ? evaluateVeilIR(parsed, input) : runVeilBytecode(parsed, input));
     return;
   }
