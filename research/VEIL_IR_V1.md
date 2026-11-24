@@ -29,6 +29,16 @@ The opcode table is a Fisher–Yates permutation driven by xorshift32. The seed 
 
 `irDigest` and the Red Lab `artifactSha256` are SHA-256 over **canonical JSON**: object keys sorted recursively, no whitespace, non-finite numbers rejected. They do not depend on source key order.
 
+## Schemas and compatibility policy
+
+Machine-readable structural schemas: [`schemas/veil-ir-v1.schema.json`](../schemas/veil-ir-v1.schema.json) and [`schemas/veil-bytecode-v1.schema.json`](../schemas/veil-bytecode-v1.schema.json) (JSON Schema 2020-12).
+
+- **Code is never more permissive than the schema.** Every document the validators accept conforms to the schema (`test/veil-schema.test.mjs`, 300 generated programs). Every structural violation in the test corpus is rejected by both.
+- **Semantic constraints JSON Schema cannot express** (node budget, depth, SSA ordering, operand arity per decoded opcode) are enforced only by the code. Each is listed in the schema's `x-appveil-semantic-constraints`, and a test case proves the code rejects it.
+- **Unknown fields are rejected** at every level, top level included. A consumer must never silently ignore a field added by a newer format.
+- **Versioning:** any change to accepted documents or to semantics bumps `schemaVersion` (IR) or `version` (bytecode) and adds a new schema file. Existing versions are never edited in place except to tighten a bug that let invalid documents through, and such a change is called out in the PR. A reader that does not support a version fails closed.
+- `src/json-schema-lite.mjs` supports only the keywords these schemas use. Unknown keywords throw, so a schema cannot quietly lose a constraint.
+
 ## Measured cost
 
 Reproduce with `node --expose-gc scripts/veil-ir-bench.mjs 200000`. The script reports resource cost only, never confidentiality.

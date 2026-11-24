@@ -28,8 +28,17 @@ function assertNode(node, depth = 0, budget = { count: 0 }) {
   }
   throw new Error(`Unsupported IR opcode: ${String(node.op)}`);
 }
+const IR_KEYS = new Set(['schemaVersion', 'inputType', 'outputType', 'expression']);
+const BYTECODE_REQUIRED = ['format', 'version', 'instructions', 'opcodes', 'registers'];
+const BYTECODE_KEYS = new Set([...BYTECODE_REQUIRED, 'seed', 'irDigest', 'disclaimer']);
+/** Reject unknown top-level fields so new format features cannot be silently ignored (fail closed). */
+function assertKnownKeys(doc, allowed, what) {
+  for (const k of Object.keys(doc)) if (!allowed.has(k)) throw new Error(`Unknown ${what} field: ${k}`);
+}
 export function validateVeilIR(ir) {
-  if (!ir || ir.schemaVersion !== 1 || ir.inputType !== 'uint32' || ir.outputType !== 'uint32' || !('expression' in ir)) throw new Error('Expected version 1 uint32 Veil IR');
+  if (!ir || typeof ir !== 'object' || Array.isArray(ir)) throw new Error('Expected version 1 uint32 Veil IR');
+  assertKnownKeys(ir, IR_KEYS, 'IR');
+  if (ir.schemaVersion !== 1 || ir.inputType !== 'uint32' || ir.outputType !== 'uint32' || !('expression' in ir)) throw new Error('Expected version 1 uint32 Veil IR');
   assertNode(ir.expression);
   return ir;
 }
@@ -124,7 +133,11 @@ export function compileVeilIR(ir, { seed = 0 } = {}) {
 }
 export function runVeilBytecode(program, input) {
   if (!WORD(input)) throw new TypeError('Input must be uint32');
-  if (!program || program.format !== 'appveil-experimental-bytecode' || program.version !== 1) throw new Error('Invalid bytecode envelope');
+  if (!program || typeof program !== 'object' || Array.isArray(program) || program.format !== 'appveil-experimental-bytecode' || program.version !== 1) throw new Error('Invalid bytecode envelope');
+  assertKnownKeys(program, BYTECODE_KEYS, 'bytecode');
+  if ('seed' in program && !WORD(program.seed)) throw new Error('Invalid bytecode seed');
+  if ('irDigest' in program && (typeof program.irDigest !== 'string' || !/^[0-9a-f]{64}$/.test(program.irDigest))) throw new Error('Invalid bytecode irDigest');
+  if ('disclaimer' in program && (typeof program.disclaimer !== 'string' || program.disclaimer.length > 200)) throw new Error('Invalid bytecode disclaimer');
   if (!Array.isArray(program.opcodes) || program.opcodes.length !== OPERATIONS.length || new Set(program.opcodes).size !== OPERATIONS.length || program.opcodes.some(op => !OPERATIONS.includes(op))) throw new Error('Invalid opcode table');
   if (!Number.isInteger(program.registers) || program.registers < 1 || program.registers > 256 || !Array.isArray(program.instructions) || program.instructions.length !== program.registers + 1) throw new Error('Invalid register or instruction count');
   const regs = [];
