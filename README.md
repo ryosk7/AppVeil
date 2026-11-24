@@ -61,6 +61,7 @@ node bin/appveil.mjs local-ai-trial /tmp/synthetic.o <installed-local-ollama-mod
 - [Run a local-only AI reconstruction trial using Ollama](docs/LOCAL_AI_TRIAL.md)
 - [Verified unpublished candidate image results](docs/CANDIDATE_IMAGE_VERIFICATION_2026-11-19.md)
 - [Published release audit: old image digests remain affected](docs/PUBLISHED_RELEASE_VERIFICATION_2026-11-19.md)
+- [Re-audit 2026-11-25: Proofy 2.6.19 passes the first-party policies including layers; Shipboard AI 0.4.35 still affected](docs/PUBLISHED_RELEASE_VERIFICATION_2026-11-25.md)
 - [Fail-closed GitHub Actions gate for newly published image](https://github.com/ryosk7/AppVeil/actions/workflows/verify-published-image.yml)
 - [Production image release verification gate](docs/RELEASE_GATE.md)
 - [Olares Chart reference & image release checklist](docs/OLARES_IMAGE_RELEASE.md)
