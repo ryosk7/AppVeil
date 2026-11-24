@@ -17,6 +17,7 @@ import { compileVeilIRToWasm, wasmDigest } from '../src/veil-wasm.mjs';
 import { compileVeilIRv2, evaluateVeilIRv2, loadVeilBytecodeV2, executeVeilBytecodeV2 } from '../src/veil-ir-v2.mjs';
 import { compileTypeScriptSubset } from '../src/ts-frontend.mjs';
 import { optimizeVeilIRv2 } from '../src/veil-opt.mjs';
+import { build, writeBuild, verifyBuild } from '../src/build-manifest.mjs';
 import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
@@ -54,6 +55,20 @@ async function main() {
   const { command, positionals, values } = parseCommandLine(argv);
   const [target] = positionals;
   const json = values.json === true, strict = values.strict === true;
+  if (command === 'build') {
+    const seed = values.seed === undefined ? 0 : parseUint32Decimal(values.seed, '--seed');
+    const kind = /\.ts$/i.test(target) ? 'ts' : 'ir';
+    const built = build(readFileSync(target, 'utf8'), { kind, seed, optimize: values.optimize === true });
+    writeBuild(positionals[1], built);
+    console.log(JSON.stringify(built.manifest, null, 2));
+    return;
+  }
+  if (command === 'verify-build') {
+    const result = verifyBuild(target, readFileSync(positionals[1], 'utf8'));
+    console.log(JSON.stringify(result, null, 2));
+    if (!result.reproducible) process.exitCode = EXIT.POLICY;
+    return;
+  }
   if (command === 'compile-ts') {
     const seed = values.seed === undefined ? 0 : parseUint32Decimal(values.seed, '--seed');
     const compiled = compileTypeScriptSubset(readFileSync(target, 'utf8'));

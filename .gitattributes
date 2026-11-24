@@ -1,0 +1,4 @@
+# Reproducible-build inputs and golden digests must not change with checkout settings (issue #18).
+examples/** text eol=lf
+test/golden/** text eol=lf
+schemas/** text eol=lf
