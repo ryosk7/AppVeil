@@ -9,6 +9,7 @@ export function recoverInstructionTrace(program) {
   if (!program || program.format !== 'appveil-experimental-bytecode' ||
       program.version !== 1 || !Array.isArray(program.opcodes) ||
       !Array.isArray(program.instructions)) throw new Error('Unsupported VM program');
+  for (let i = 0; i < program.instructions.length; i++) if (!(i in program.instructions)) throw new Error('Invalid instruction');
   const trace = program.instructions.map((inst, index) => {
     if (!Array.isArray(inst) || !Number.isInteger(inst[0]) ||
         inst[0] < 0 || inst[0] >= program.opcodes.length) throw new Error('Invalid instruction');
