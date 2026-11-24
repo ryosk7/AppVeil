@@ -38,3 +38,18 @@ The recovered IR is **structurally identical** to the reference, not merely equi
 **Conclusion:** even if the opcode table were hidden or encrypted at rest, a host-root attacker who can observe execution recovers the computation. Any confidentiality claim needs an execution boundary the host cannot instrument (Track C), not a different encoding.
 
 The Wasm backend will be traced once it exists (issue #9).
+
+## Wasm defender (issues #9, #13)
+
+`--defender veil-wasm-v1` ships `artifact.wasm`, produced by the independent backend in `src/veil-wasm.mjs`. The attackers (`src/red-lab-wasm-attacks.mjs`) use only the public Wasm binary format:
+
+- **Static:** parse the code section and evaluate the operand stack symbolically.
+- **Dynamic:** rewrite the binary to import a `trace` hook and call it after every value-producing instruction. The stack discipline gives the dataflow, and each operation is inferred from observed values; opcode bytes are used only to know how many operands an instruction pops.
+
+| Attack (100 trials, size 12, 1,000 holdout inputs) | VM bytecode v1 | Wasm |
+| --- | --- | --- |
+| Static decompile | 100/100 | 100/100 |
+| Dynamic trace or instrumentation | 100/100 | 100/100 |
+| Black-box enumeration (30 trials, size 4, 32 queries) | 16/30 | 16/30 |
+
+The black-box results agree per trial across the two encodings (`test/red-lab-wasm.test.mjs`). This is the empirical form of the point made in `research/RED_LAB_BLACKBOX.md`: encoding does not affect functional imitation. Neither encoding provides any protection against static or dynamic attackers.

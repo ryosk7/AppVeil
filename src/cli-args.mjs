@@ -27,7 +27,7 @@ export const COMMANDS = Object.freeze({
   'compile-ir-wasm': { positionals: ['ir.json', 'out.wasm'], options: {} },
   'run-bytecode': { positionals: ['bytecode.json', 'uint32-input'], options: {} },
   'red-lab-decode': { positionals: ['bytecode.json'], options: {} },
-  'red-lab-run': { positionals: ['attack'], options: { trials: { type: 'string' }, size: { type: 'string' }, seed: { type: 'string' }, holdout: { type: 'string' }, queries: { type: 'string' }, full: { type: 'boolean' } } }
+  'red-lab-run': { positionals: ['attack'], options: { trials: { type: 'string' }, size: { type: 'string' }, seed: { type: 'string' }, holdout: { type: 'string' }, queries: { type: 'string' }, defender: { type: 'string' }, full: { type: 'boolean' } } }
 });
 
 /** Parse argv strictly. Returns { command, positionals, values } or throws UsageError. */

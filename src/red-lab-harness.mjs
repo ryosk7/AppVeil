@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'n
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { compileVeilIR, validateVeilIR, evaluateVeilIR, loadVeilBytecode, executeVeilBytecode, sha256Canonical } from './veil-ir.mjs';
+import { compileVeilIRToWasm, instantiateVeilWasm, wasmDigest } from './veil-wasm.mjs';
 
 /**
  * Red Lab harness (research). Attackers receive only a defender artifact (or a query-limited oracle)
@@ -11,7 +12,9 @@ import { compileVeilIR, validateVeilIR, evaluateVeilIR, loadVeilBytecode, execut
  */
 export const RESULT_SCHEMA_VERSION = 1;
 export const ATTACK_CLASSES = Object.freeze(['static', 'dynamic', 'black-box', 'ai']);
-export const DEFENDERS = Object.freeze(['veil-vm-v1']);
+export const DEFENDERS = Object.freeze(['veil-vm-v1', 'veil-wasm-v1']);
+/** File name of the artifact the attacker receives, per defender. */
+export const ARTIFACT_FILE = Object.freeze({ 'veil-vm-v1': 'artifact.json', 'veil-wasm-v1': 'artifact.wasm' });
 
 // Challenge generation is deliberately independent of the compiler and of test helpers:
 // its own PRNG (splitmix32) and grammar, so defenders cannot shape the challenge distribution.
@@ -66,9 +69,14 @@ export function createTrial({ challengeSeed, size = 6, defender = 'veil-vm-v1', 
   if (!Number.isSafeInteger(holdoutCount) || holdoutCount < 10 || holdoutCount > 100000) throw new TypeError('holdoutCount must be in [10, 100000]');
   const reference = generateChallenge({ seed: challengeSeed, size });
   const dSeed = defenderSeed ?? splitmix32(challengeSeed ^ 0xa5a5a5a5)();
-  const artifact = compileVeilIR(reference, { seed: dSeed });
   // The artifact handed to the attacker carries no digest of the reference IR.
-  const { irDigest, ...shipped } = artifact;
+  let shipped, artifactDigest;
+  if (defender === 'veil-vm-v1') {
+    const { irDigest, ...bc } = compileVeilIR(reference, { seed: dSeed });
+    shipped = bc; artifactDigest = sha256Canonical(bc);
+  } else {
+    shipped = compileVeilIRToWasm(reference); artifactDigest = wasmDigest(shipped);
+  }
   const hNext = splitmix32(holdoutSeed ?? (challengeSeed ^ 0x5eed5eed));
   const holdout = Array.from({ length: holdoutCount }, (_, i) => (i < 6 ? [0, 1, 2, 0x7fffffff, 0x80000000, 0xffffffff][i] : hNext()));
   const attackerDir = mkdtempSync(path.join(tmpdir(), 'appveil-redlab-attacker-'));
@@ -77,14 +85,16 @@ export function createTrial({ challengeSeed, size = 6, defender = 'veil-vm-v1', 
     schemaVersion: RESULT_SCHEMA_VERSION,
     defender,
     challenge: { seed: challengeSeed, size, referenceDigest: sha256Canonical(reference) },
-    artifactDigest: sha256Canonical(shipped),
+    artifactFile: ARTIFACT_FILE[defender],
+    artifactDigest,
     holdout: { count: holdoutCount, digest: sha256Canonical(holdout) },
     budget: { queries: budget.queries ?? 0, timeMs: budget.timeMs ?? 60000, tokens: budget.tokens ?? 0 }
   };
-  writeJson(path.join(attackerDir, 'artifact.json'), shipped);
+  if (defender === 'veil-vm-v1') writeJson(path.join(attackerDir, ARTIFACT_FILE[defender]), shipped);
+  else writeFileSync(path.join(attackerDir, ARTIFACT_FILE[defender]), shipped, { mode: 0o600 });
   writeJson(path.join(attackerDir, 'task.json'), {
     schemaVersion: 1,
-    task: 'Recover the function computed by artifact.json (uint32 -> uint32). Submit a Veil IR v1 document or output predictions. Do not submit code.',
+    task: `Recover the function computed by ${ARTIFACT_FILE[defender]} (uint32 -> uint32). Submit a Veil IR v1 document or output predictions. Do not submit code.`,
     defender, budget: manifest.budget
   });
   writeJson(path.join(judgeDir, 'reference.json'), reference);
@@ -126,12 +136,15 @@ export function assertAttackerIsolation(trial) {
 export function createOracle(trial, { maxQueries } = {}) {
   const limit = maxQueries ?? trial.manifest.budget.queries;
   if (!Number.isSafeInteger(limit) || limit < 1) throw new TypeError('Oracle requires a positive query budget');
-  const handle = loadVeilBytecode(JSON.parse(readFileSync(path.join(trial.attackerDir, 'artifact.json'), 'utf8')));
+  const file = path.join(trial.attackerDir, ARTIFACT_FILE[trial.manifest.defender]);
+  let run;
+  if (trial.manifest.defender === 'veil-vm-v1') { const handle = loadVeilBytecode(JSON.parse(readFileSync(file, 'utf8'))); run = x => executeVeilBytecode(handle, x); }
+  else run = instantiateVeilWasm(readFileSync(file));
   let used = 0;
   const oracle = x => {
     if (used >= limit) throw new Error('Oracle query budget exhausted');
     used++;
-    return executeVeilBytecode(handle, x);
+    return run(x);
   };
   Object.defineProperty(oracle, 'used', { get: () => used });
   return oracle;
