@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, lstatSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync, lstatSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { scanTree, severityRank } from '../src/inspect.mjs';
@@ -13,6 +13,7 @@ import { checkOlaresValuesFile } from '../src/olares-image-check.mjs';
 import { compileVeilIR, runVeilBytecode, evaluateVeilIR } from '../src/veil-ir.mjs';
 import { recoverInstructionTraceFile } from '../src/red-lab.mjs';
 import { auditImageArchiveFile } from '../src/oci-layers.mjs';
+import { compileVeilIRToWasm, wasmDigest } from '../src/veil-wasm.mjs';
 import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
@@ -50,6 +51,12 @@ async function main() {
   const { command, positionals, values } = parseCommandLine(argv);
   const [target] = positionals;
   const json = values.json === true, strict = values.strict === true;
+  if (command === 'compile-ir-wasm') {
+    const bytes = compileVeilIRToWasm(JSON.parse(readFileSync(target, 'utf8')));
+    writeFileSync(positionals[1], bytes, { flag: 'wx' }); // never overwrite an existing file
+    console.log(JSON.stringify({ wrote: positionals[1], bytes: bytes.length, digest: wasmDigest(bytes), note: 'Wasm is decompilable; this is not a confidentiality mechanism.' }));
+    return;
+  }
   if (command === 'red-lab-run') {
     const num = (name, dflt) => values[name] === undefined ? dflt : parseUint32Decimal(values[name], `--${name}`);
     const report = await runRedLab({ attack: target, trials: num('trials', 20), size: num('size', 8), seed: num('seed', 1), holdoutCount: num('holdout', 1000), queries: num('queries', 0) });
