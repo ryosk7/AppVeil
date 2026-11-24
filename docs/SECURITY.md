@@ -17,8 +17,8 @@ Assume an Olares One owner can administer the host as root, export container fil
 
 ### What it does NOT do
 - It does not conceal JavaScript, protect running process memory, detect all leaked secrets, perform static data-flow analysis, validate licenses, or enforce copyright.
-- It cannot prevent inspection by the root owner of a standard Olares One. Device evidence: no SGX, TDX or TME, Secure Boot off, lockdown none (`docs/OLARES_ONE_HW_EVIDENCE_2026-11-24.md`). A software secret module's keys are extracted from memory by host root (`research/RED_LAB_EXTRACTION.md`, draft).
-- It cannot protect application logic from a *physical* owner with any surveyed on-premises hardware: CPU TEEs exclude physical attackers (`research/HARDWARE_ISOLATION_SURVEY.md`, draft).
+- It cannot prevent inspection by the root owner of a standard Olares One. Device evidence: no SGX, TDX or TME, Secure Boot off, lockdown none (`docs/OLARES_ONE_HW_EVIDENCE_2026-11-24.md`). A software secret module's keys are extracted from memory by host root (`research/RED_LAB_EXTRACTION.md`).
+- It cannot protect application logic from a *physical* owner with any surveyed on-premises hardware: CPU TEEs exclude physical attackers (`research/HARDWARE_ISOLATION_SURVEY.md`).
 - It cannot prove safety when no findings are detected.
 - It does not certify hardware-based confidentiality.
 

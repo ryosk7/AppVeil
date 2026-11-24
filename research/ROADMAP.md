@@ -46,10 +46,10 @@ Track C must be independently security-reviewed (`agent.md` §5). Items marked �
 | Key | Issue | Task | Track | Depends on | Status |
 | --- | --- | --- | --- | --- | --- |
 | C1 | [#20](https://github.com/ryosk7/AppVeil/issues/20) | Olares One hardware capability evidence | C | real device | ✅ |
-| C2 | [#21](https://github.com/ryosk7/AppVeil/issues/21) | Fail-closed policy engine + attestation interface | C | independent review | ⛔ draft #52 (review) |
-| C3 | [#22](https://github.com/ryosk7/AppVeil/issues/22) | Authenticated local IPC protocol | C | independent review | ⛔ draft #54 (review) |
-| C4 | [#23](https://github.com/ryosk7/AppVeil/issues/23) | Survey of isolated hardware candidates | C | hardware testing | ⛔ draft #55 (review, hardware) |
-| D5 | [#24](https://github.com/ryosk7/AppVeil/issues/24) | Key/material extraction lab | D | C2, C3 | ⛔ draft #56 (review) |
+| C2 | [#21](https://github.com/ryosk7/AppVeil/issues/21) | Fail-closed policy engine + attestation interface | C | independent review | ✅ #52 (AI-reviewed) |
+| C3 | [#22](https://github.com/ryosk7/AppVeil/issues/22) | Authenticated local IPC protocol | C | independent review | ✅ #54 (AI-reviewed) |
+| C4 | [#23](https://github.com/ryosk7/AppVeil/issues/23) | Survey of isolated hardware candidates | C | hardware testing | ✅ #55 (AI-reviewed; candidates not tested) |
+| D5 | [#24](https://github.com/ryosk7/AppVeil/issues/24) | Key/material extraction lab | D | C2, C3 | ✅ #56 (AI-reviewed) |
 
 ## M5 — AI trials & Olares release
 
@@ -57,7 +57,7 @@ Track C must be independently security-reviewed (`agent.md` §5). Items marked �
 | --- | --- | --- | --- | --- | --- |
 | D6 | [#25](https://github.com/ryosk7/AppVeil/issues/25) | Local AI reconstruction trials | D | D1–D4, local model | ⛔ pipeline merged (#57); trials need a local model |
 | E3 | [#26](https://github.com/ryosk7/AppVeil/issues/26) | Chart digest pinning and OAC metadata verification | E | — | ✅ |
-| E4 | [#27](https://github.com/ryosk7/AppVeil/issues/27) | Re-audit new published Proofy / Shipboard releases | E | new releases, E1, E3 | 🟨 Proofy ✅ (#53); Shipboard ⛔ no new release |
+| E4 | [#27](https://github.com/ryosk7/AppVeil/issues/27) | Re-audit new published Proofy / Shipboard releases | E | new releases, E1, E3 | 🟨 Proofy ✅ (#53, #59); Shipboard ⛔ no new release |
 | F3 | [#28](https://github.com/ryosk7/AppVeil/issues/28) | README / SECURITY / terminology alignment | Foundation | — | ✅ |
 
 ## Parallel-work ownership
