@@ -105,7 +105,8 @@ async function main() {
   }
   if (command === 'red-lab-run') {
     const num = (name, dflt) => values[name] === undefined ? dflt : parseUint32Decimal(values[name], `--${name}`);
-    const report = await runRedLab({ attack: target, trials: num('trials', 20), size: num('size', 8), seed: num('seed', 1), holdoutCount: num('holdout', 1000), queries: num('queries', 0), defender: values.defender ?? 'veil-vm-v1' });
+    const report = await runRedLab({ attack: target, trials: num('trials', 20), size: num('size', 8), seed: num('seed', 1), holdoutCount: num('holdout', 1000), queries: num('queries', 0), defender: values.defender ?? 'veil-vm-v1', attackOptions: { model: values.model } });
+    if (report.status === 'not-checked') { console.log(JSON.stringify(report, null, 2)); process.exitCode = EXIT.ERROR; return; }
     // Per-trial results only with --full; the summary is the headline. Success here means the defense failed.
     console.log(JSON.stringify(values.full ? report : { ...report, results: undefined }, null, 2));
     return;
