@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { sha256Canonical } from './veil-ir.mjs';
 
 /**
  * Static attack baseline. Decodes shipped opcode tables without running the artifact.
@@ -20,7 +20,7 @@ export function recoverInstructionTrace(program) {
     recovered: trace,
     decodedInstructions: trace.length,
     securityFinding: 'Shipped opcode table reveals all instruction mnemonics. Permutation alone provides no meaningful confidentiality.',
-    artifactSha256: createHash('sha256').update(JSON.stringify(program)).digest('hex')
+    artifactSha256: sha256Canonical(program)
   };
 }
 export function recoverInstructionTraceFile(filename) {

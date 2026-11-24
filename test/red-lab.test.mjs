@@ -16,3 +16,8 @@ test('static attacker recovers exact operation sequence across diversified opcod
 test('rejects unsupported artifact', () => {
   assert.throws(() => recoverInstructionTrace({}));
 });
+test('artifact digest is canonical across key order', () => {
+  const p = compileVeilIR(ir, { seed: 5 });
+  const reordered = Object.fromEntries(Object.entries(p).reverse());
+  assert.equal(recoverInstructionTrace(p).artifactSha256, recoverInstructionTrace(reordered).artifactSha256);
+});

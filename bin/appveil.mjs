@@ -17,6 +17,13 @@ const args = process.argv.slice(2);
 function usage() {
   console.log('AppVeil 0.1.0 (experimental)\n\nUsage:\n  appveil inspect <directory> [--json] [--strict]\n  appveil inspect-image <image> [--json] [--strict]\n  appveil audit-dockerfile <Dockerfile> [--json] [--strict]\n  appveil benchmark <artifact1> <artifact2> [...] [--marker <literal>]\n  appveil evaluate-reconstruction <predictions.json> <inputs.json>\n  appveil verify-image-report <image-audit.json>\n  appveil local-ai-trial <synthetic-artifact> <installed-ollama-model>\n  appveil check-olares-image <values.yaml> [--previous <image-ref>] [--require-digest]\n  appveil compile-ir <ir.json> [--seed <uint32>]\n  appveil run-ir <ir.json> <uint32-input>\n  appveil run-bytecode <bytecode.json> <uint32-input>\n  appveil red-lab-decode <bytecode.json>\n\ninspect-image requires Docker and a locally available image; it uses docker create + docker cp, never starts the container.\nFindings are indicators, not proof that an image is secure.');
 }
+/** Strict decimal uint32 parser: rejects empty, hex, signs, exponents, fractions and out-of-range values. */
+function parseUint32Decimal(text, name) {
+  if (typeof text !== 'string' || !/^(0|[1-9]\d{0,9})$/.test(text)) throw new Error(`Specify ${name} as a uint32 decimal integer`);
+  const value = Number(text);
+  if (value > 0xffffffff) throw new Error(`Specify ${name} as a uint32 decimal integer`);
+  return value;
+}
 function run(command, argv) {
   const p = spawnSync(command, argv, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
   if (p.error || p.status !== 0) throw new Error(`${command} failed: ${p.error?.message ?? p.stderr?.trim() ?? p.status}`);
@@ -44,11 +51,10 @@ async function main() {
     const parsed = JSON.parse(readFileSync(target, 'utf8'));
     if (command === 'compile-ir') {
       const idx = args.indexOf('--seed');
-      const seed = idx < 0 ? 0 : Number(args[idx + 1]);
+      const seed = idx < 0 ? 0 : parseUint32Decimal(args[idx + 1], '--seed');
       console.log(JSON.stringify(compileVeilIR(parsed, { seed }), null, 2));
     } else {
-      if (!args[2] || !/^\\d+$/.test(args[2])) throw new Error('Specify a uint32 decimal input');
-      const input = Number(args[2]);
+      const input = parseUint32Decimal(args[2], 'input');
       console.log(command === 'run-ir' ? evaluateVeilIR(parsed, input) : runVeilBytecode(parsed, input));
     }
     return;

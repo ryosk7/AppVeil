@@ -60,11 +60,40 @@ export function evaluateVeilIR(ir, input) {
   }
   return walk(ir.expression);
 }
-const OPERATIONS = ['load-input','load-const','add','sub','xor','and','or','mul','shl','shr','ushr','not','ret'];
+/**
+ * Canonical JSON: object keys sorted recursively, no whitespace. Digests computed over this
+ * form do not depend on key order in the source file. Rejects values JSON cannot represent.
+ */
+export function canonicalJson(value) {
+  if (value === null || typeof value === 'boolean' || typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new TypeError('Non-finite number is not canonical JSON');
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${canonicalJson(value[k])}`).join(',')}}`;
+  }
+  throw new TypeError(`Unsupported value in canonical JSON: ${typeof value}`);
+}
+export function sha256Canonical(value) {
+  return createHash('sha256').update(canonicalJson(value)).digest('hex');
+}
+/** murmur3 fmix32 finalizer: bijective uint32 mixing so small/zero seeds do not start xorshift in a weak state. */
+function fmix32(h) {
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+export const OPERATIONS = Object.freeze(['load-input','load-const','add','sub','xor','and','or','mul','shl','shr','ushr','not','ret']);
+export function opcodePermutation(seed) { return permutation(seed); }
 function permutation(seed) {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) throw new TypeError('Seed must be uint32');
   const ordered = OPERATIONS.slice();
-  let x = seed >>> 0;
+  // xorshift32 has a fixed point at 0; mix the seed first and never start from 0.
+  // Diversification only: the table ships in the artifact and is NOT secret (research/RED_LAB_BASELINE.md).
+  let x = fmix32((seed ^ 0x9e3779b9) >>> 0) || 0x6d2b79f5;
   for (let i = ordered.length - 1; i > 0; i--) {
     x ^= x << 13; x ^= x >>> 17; x ^= x << 5; x >>>= 0;
     const j = x % (i + 1);
@@ -91,7 +120,7 @@ export function compileVeilIR(ir, { seed = 0 } = {}) {
   }
   const out = lower(ir.expression);
   instructions.push([opcodes.indexOf('ret'), out]);
-  return { format: 'appveil-experimental-bytecode', version: 1, instructions, opcodes, registers: next, seed, irDigest: createHash('sha256').update(JSON.stringify(ir)).digest('hex'), disclaimer: 'Opcode permutation is NOT cryptographic secrecy or confidentiality.' };
+  return { format: 'appveil-experimental-bytecode', version: 1, instructions, opcodes, registers: next, seed, irDigest: sha256Canonical(ir), disclaimer: 'Opcode permutation is NOT cryptographic secrecy or confidentiality.' };
 }
 export function runVeilBytecode(program, input) {
   if (!WORD(input)) throw new TypeError('Input must be uint32');

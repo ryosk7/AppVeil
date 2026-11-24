@@ -23,10 +23,11 @@ test('different seeds change encoding while retaining behavior', () => {
   assert.equal(runVeilBytecode(a,0xdeadbeef),runVeilBytecode(b,0xdeadbeef));
 });
 test('invalid programs and IR fail closed', () => {
-  assert.throws(()=>compileVeilIR({...ir,expression:{op:'eval',code:'process.exit()'}}));
-  assert.throws(()=>compileVeilIR({...ir,expression:{op:'const',value:-1}}));
-  assert.throws(()=>compileVeilIR(ir,{seed:-1}));
-  assert.throws(()=>runVeilBytecode({...compileVeilIR(ir),opcodes:[]},1));
-  assert.throws(()=>runVeilBytecode(compileVeilIR(ir),-1));
-  assert.throws(()=>runVeilBytecode({...compileVeilIR(ir),instructions:[[0,999]]},1));
+  assert.throws(()=>compileVeilIR({...ir,expression:{op:'eval',code:'process.exit()'}}),/Unsupported IR opcode/);
+  assert.throws(()=>compileVeilIR({...ir,expression:{op:'const',value:-1}}),/Constant must be uint32/);
+  assert.throws(()=>compileVeilIR(ir,{seed:-1}),/Seed must be uint32/);
+  assert.throws(()=>runVeilBytecode({...compileVeilIR(ir),opcodes:[]},1),/Invalid opcode table/);
+  assert.throws(()=>runVeilBytecode(compileVeilIR(ir),-1),/Input must be uint32/);
+  // Instruction count no longer matches `registers + 1`; per-instruction checks are in veil-ir-semantics.test.mjs.
+  assert.throws(()=>runVeilBytecode({...compileVeilIR(ir),instructions:[[0,999]]},1),/Invalid register or instruction count/);
 });
