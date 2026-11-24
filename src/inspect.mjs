@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, lstatSync } from 'node:fs';
 import path from 'node:path';
+import { scanSecrets, SECRET_FILE_LIMIT } from './secret-patterns.mjs';
 
 const SKIP = new Set(['.git', 'proc', 'sys', 'dev']);
 export const severityRank = s => ({ info: 0, low: 1, medium: 2, high: 3, critical: 4 })[s] ?? 0;
@@ -23,7 +24,7 @@ export function classifyPath(rel) {
 export function contentLimit(rel) {
   if (rel.endsWith('.map') && isFirstPartyMap(rel)) return MAP_LIMIT;
   if (/\.(?:js|mjs|cjs)$/i.test(rel)) return JS_LIMIT;
-  return 0;
+  return SECRET_FILE_LIMIT;
 }
 /** Content rules. Output never includes file contents. */
 export function classifyContent(rel, bytes) {
@@ -40,10 +41,12 @@ export function classifyContent(rel, bytes) {
   if (/\.(?:js|mjs|cjs)$/i.test(rel) && bytes.length <= JS_LIMIT && /sourceMappingURL\s*=/.test(bytes.toString('utf8'))) {
     findings.push({ rule: 'SOURCEMAP_REFERENCE', severity: 'medium', path: rel, message: 'JavaScript references a source map' });
   }
+  findings.push(...scanSecrets(rel, bytes));
   return findings;
 }
-export function scanTree(root, { maxFiles = 100000, maxDepth = 40 } = {}) {
+export function scanTree(root, { maxFiles = 100000, maxDepth = 40, maxContentBytes = 2 * 1024 ** 3 } = {}) {
   const findings = [];
+  let contentBytes = 0, budgetReported = false;
   const stack = [{ dir: root, relative: '', depth: 0 }];
   let files = 0;
   while (stack.length) {
@@ -70,6 +73,13 @@ export function scanTree(root, { maxFiles = 100000, maxDepth = 40 } = {}) {
         let size, contents;
         try { size = lstatSync(file).size; } catch { unreadable(); continue; }
         if (size > limit) { if (firstPartyMap) findings.push(oversizeMap(rel)); continue; }
+        if (contentBytes + size > maxContentBytes) {
+          // Never let a skipped content scan look like a clean one.
+          if (!budgetReported) findings.push({ rule: 'CONTENT_SCAN_INCOMPLETE', severity: 'high', path: rel, message: `Content-scan byte budget (${maxContentBytes}) exhausted; remaining files were checked by path only` });
+          budgetReported = true;
+          continue;
+        }
+        contentBytes += size;
         // A first-party map that cannot be read is reported. Other unreadable files are skipped (best-effort scan).
         try { contents = readFileSync(file); } catch { unreadable(); continue; }
         findings.push(...classifyContent(rel, contents));
