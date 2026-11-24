@@ -19,3 +19,18 @@ AppVeil can ask a locally running [Ollama](https://ollama.com/) model to predict
 - This test checks black-box functional imitation only, not memory extraction, instrumentation, or algorithm recovery.
 
 The real research phase requires independently withheld challenge algorithms and inputs, multiple model versions/attack budgets, and tests that also permit decompilers or runtime instrumentation.
+
+## Hidden-challenge AI trials through the Red Lab harness (issue #25)
+
+`node bin/appveil.mjs red-lab-run local-ai --model <installed-model> [--defender veil-vm-v1|veil-wasm-v1] [--trials 30] [--size 8] --full`
+
+This addresses the limitations above. Each trial uses a **freshly generated hidden challenge** (`research/RED_LAB_HARNESS.md`). The model receives only the attacker workspace artifact; the prompt is built by `buildPrompt`, and a test asserts that it contains no reference or holdout data. The model's reply is parsed as a Veil IR document, which is **data**, and judged on 1,000 hidden holdout inputs. Generated code is never run.
+
+Each result records:
+- the model id, digest, quantization, parameter size and family (from the local `/api/tags`)
+- token use and wall time
+- the trust assumption that the loopback endpoint does not forward data, which is not verified
+
+A missing endpoint or model is reported as **`not-checked`** with exit 1; it is never recorded as a failed attack. Compare the results with the non-AI baselines: static and dynamic attacks recover 100% (`research/RED_LAB_BASELINE.md`), and black-box enumeration results are in `research/RED_LAB_BLACKBOX.md`.
+
+**Status (2026-11-25): no trial has been run.** There is no Ollama installation or local model on the development machine, and none on CI. The pipeline is tested end to end against a fake loopback model (`test/red-lab-ai.test.mjs`). That test checks scoring, metadata, prompt isolation, garbage and code replies, and `not-checked` handling. Running real trials needs an installed local model, a choice of model and quantization, and a fixed token and time budget. Results must be published with confidence intervals, including failures.
