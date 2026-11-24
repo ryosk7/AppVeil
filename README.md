@@ -18,7 +18,7 @@ Terminology follows [`agent.md`](agent.md) §2. A row marked *prototype* or *not
 | Black-box imitation baseline (non-AI) | Functional imitation resistance | measured; independent of encoding | [RED_LAB_BLACKBOX](research/RED_LAB_BLACKBOX.md) |
 | Local AI reconstruction trials | AI attack benchmark | pipeline only; **not run** (no local model) | [LOCAL_AI_TRIAL](docs/LOCAL_AI_TRIAL.md) |
 | Confidential execution on Olares One | Confidential execution | **unsupported**: no SGX/TDX/TME | [HW evidence](docs/OLARES_ONE_HW_EVIDENCE_2026-11-24.md) |
-| Policy engine, authenticated IPC, hardware survey, key-extraction lab | Confidential execution (Track C) | prototype in **draft PRs awaiting independent review** | #52, #54, #55, #56 |
+| Policy engine, authenticated IPC, hardware survey, key-extraction lab | Confidential execution (Track C) | prototype; reviewed by an independent AI agent (human review still recommended). The lab shows a software secret module is **extracted** by ptrace-level access | [CONFIDENTIAL_POLICY](research/CONFIDENTIAL_POLICY.md), [LOCAL_IPC_PROTOCOL](research/LOCAL_IPC_PROTOCOL.md), [HARDWARE_ISOLATION_SURVEY](research/HARDWARE_ISOLATION_SURVEY.md), [RED_LAB_EXTRACTION](research/RED_LAB_EXTRACTION.md) |
 
 Research status per task: [`research/ROADMAP.md`](research/ROADMAP.md).
 
