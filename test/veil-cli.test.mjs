@@ -37,12 +37,14 @@ test('CLI run-ir, compile-ir and run-bytecode round-trip the documented example'
 
 test('CLI rejects non-decimal or out-of-range uint32 input and seed with nonzero exit', () => {
   for (const bad of ['', '-1', '1.5', '1e3', '0x10', '+1', '01', ' 1', '4294967296', '99999999999']) {
+    // Rejected either by the strict option parser (e.g. '-1' looks like an option, '' is empty)
+    // or by the uint32 parser; both are usage errors with exit status 1.
     const r = run('run-ir', example, bad);
     assert.equal(r.status, 1, `input ${JSON.stringify(bad)} accepted`);
-    assert.match(r.stderr, /uint32 decimal integer/);
+    assert.match(r.stderr, /^AppVeil: /);
     const s = run('compile-ir', example, '--seed', bad);
     assert.equal(s.status, 1, `seed ${JSON.stringify(bad)} accepted`);
-    assert.match(s.stderr, /--seed as a uint32 decimal integer/);
+    assert.match(s.stderr, /seed/);
   }
   const missingInput = run('run-ir', example);
   assert.equal(missingInput.status, 1);
