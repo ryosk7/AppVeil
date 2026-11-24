@@ -14,6 +14,7 @@ import { compileVeilIR, runVeilBytecode, evaluateVeilIR } from '../src/veil-ir.m
 import { recoverInstructionTraceFile } from '../src/red-lab.mjs';
 import { auditImageArchiveFile } from '../src/oci-layers.mjs';
 import { compileVeilIRToWasm, wasmDigest } from '../src/veil-wasm.mjs';
+import { compileVeilIRv2, evaluateVeilIRv2, loadVeilBytecodeV2, executeVeilBytecodeV2 } from '../src/veil-ir-v2.mjs';
 import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
@@ -71,8 +72,17 @@ async function main() {
   if (['compile-ir', 'run-ir', 'run-bytecode'].includes(command)) {
     // Parse numeric arguments before reading files so usage errors are reported first.
     const seed = command === 'compile-ir' ? (values.seed === undefined ? 0 : parseUint32Decimal(values.seed, '--seed')) : undefined;
-    const input = command === 'compile-ir' ? undefined : parseUint32Decimal(positionals[1], 'input');
     const parsed = JSON.parse(readFileSync(target, 'utf8'));
+    // Version 2 documents take a JSON object of named inputs (run-ir) or a positional JSON array (run-bytecode).
+    if (parsed?.schemaVersion === 2 || parsed?.version === 2) {
+      if (command === 'compile-ir') { console.log(JSON.stringify(compileVeilIRv2(parsed, { seed }), null, 2)); return; }
+      let inputs;
+      try { inputs = JSON.parse(positionals[1]); } catch { throw new UsageError('v2 programs take inputs as JSON, e.g. \'{"x":1}\' (run-ir) or \'[1,true]\' (run-bytecode)'); }
+      const out = command === 'run-ir' ? evaluateVeilIRv2(parsed, inputs) : executeVeilBytecodeV2(loadVeilBytecodeV2(parsed), inputs);
+      console.log(JSON.stringify(out));
+      return;
+    }
+    const input = command === 'compile-ir' ? undefined : parseUint32Decimal(positionals[1], 'input');
     if (command === 'compile-ir') console.log(JSON.stringify(compileVeilIR(parsed, { seed }), null, 2));
     else console.log(command === 'run-ir' ? evaluateVeilIR(parsed, input) : runVeilBytecode(parsed, input));
     return;

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ryosk7/AppVeil/schemas/veil-ir-v2.schema.json",
+  "title": "AppVeil Veil IR v2 (research prototype)",
+  "description": "Structural schema for typed SSA IR v2. The code validator additionally enforces the semantic constraints in x-appveil-semantic-constraints. Conformance is not a security property.",
+  "x-appveil-semantic-constraints": [
+    "Every name is assigned exactly once (inputs, let and loop variables)",
+    "Variables are defined before use; loop update expressions see loop variables and earlier names",
+    "Expressions are well-typed (u32 vs bool; select needs a bool condition and same-typed branches)",
+    "Loop update assigns exactly the loop variables and preserves their types",
+    "Every output is defined with its declared type",
+    "At most 4096 expression nodes, nesting depth 32, and a static step bound of 65536"
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "inputs", "outputs", "body"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "inputs": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "$ref": "#/$defs/port" } },
+    "outputs": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "$ref": "#/$defs/port" } },
+    "body": { "type": "array", "maxItems": 256, "items": { "oneOf": [{ "$ref": "#/$defs/let" }, { "$ref": "#/$defs/loopStatement" }] } }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-z_][a-z0-9_]{0,31}$" },
+    "type": { "enum": ["u32", "bool"] },
+    "port": { "type": "object", "additionalProperties": false, "required": ["name", "type"], "properties": { "name": { "$ref": "#/$defs/name" }, "type": { "$ref": "#/$defs/type" } } },
+    "let": { "type": "object", "additionalProperties": false, "required": ["let", "expr"], "properties": { "let": { "$ref": "#/$defs/name" }, "expr": { "$ref": "#/$defs/node" } } },
+    "loopStatement": {
+      "type": "object", "additionalProperties": false, "required": ["loop"],
+      "properties": {
+        "loop": {
+          "type": "object", "additionalProperties": false, "required": ["count", "vars", "update"],
+          "properties": {
+            "count": { "type": "integer", "minimum": 1, "maximum": 1024 },
+            "vars": { "type": "object", "minProperties": 1, "maxProperties": 16, "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/node" } },
+            "update": { "type": "object", "minProperties": 1, "maxProperties": 16, "propertyNames": { "$ref": "#/$defs/name" }, "additionalProperties": { "$ref": "#/$defs/node" } }
+          }
+        }
+      }
+    },
+    "node": { "oneOf": [{ "$ref": "#/$defs/var" }, { "$ref": "#/$defs/constU32" }, { "$ref": "#/$defs/constBool" }, { "$ref": "#/$defs/not" }, { "$ref": "#/$defs/select" }, { "$ref": "#/$defs/binary" }] },
+    "var": { "type": "object", "additionalProperties": false, "required": ["op", "name"], "properties": { "op": { "const": "var" }, "name": { "$ref": "#/$defs/name" } } },
+    "constU32": { "type": "object", "additionalProperties": false, "required": ["op", "type", "value"], "properties": { "op": { "const": "const" }, "type": { "const": "u32" }, "value": { "type": "integer", "minimum": 0, "maximum": 4294967295 } } },
+    "constBool": { "type": "object", "additionalProperties": false, "required": ["op", "type", "value"], "properties": { "op": { "const": "const" }, "type": { "const": "bool" }, "value": { "type": "boolean" } } },
+    "not": { "type": "object", "additionalProperties": false, "required": ["op", "arg"], "properties": { "op": { "const": "not" }, "arg": { "$ref": "#/$defs/node" } } },
+    "select": { "type": "object", "additionalProperties": false, "required": ["op", "cond", "then", "else"], "properties": { "op": { "const": "select" }, "cond": { "$ref": "#/$defs/node" }, "then": { "$ref": "#/$defs/node" }, "else": { "$ref": "#/$defs/node" } } },
+    "binary": { "type": "object", "additionalProperties": false, "required": ["op", "left", "right"], "properties": { "op": { "enum": ["add", "sub", "mul", "shl", "shr", "ushr", "and", "or", "xor", "eq", "ne", "ltu", "leu"] }, "left": { "$ref": "#/$defs/node" }, "right": { "$ref": "#/$defs/node" } } }
+  }
+}

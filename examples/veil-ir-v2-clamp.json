@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "inputs": [{ "name": "x", "type": "u32" }, { "name": "strict", "type": "bool" }],
+  "outputs": [{ "name": "score", "type": "u32" }, { "name": "over", "type": "bool" }],
+  "body": [
+    { "loop": { "count": 4, "vars": { "acc": { "op": "var", "name": "x" } },
+      "update": { "acc": { "op": "xor", "left": { "op": "mul", "left": { "op": "var", "name": "acc" }, "right": { "op": "const", "type": "u32", "value": 2654435761 } }, "right": { "op": "ushr", "left": { "op": "var", "name": "acc" }, "right": { "op": "const", "type": "u32", "value": 15 } } } } } },
+    { "let": "limit", "expr": { "op": "select", "cond": { "op": "var", "name": "strict" }, "then": { "op": "const", "type": "u32", "value": 1000 }, "else": { "op": "const", "type": "u32", "value": 100000 } } },
+    { "let": "low", "expr": { "op": "ushr", "left": { "op": "var", "name": "acc" }, "right": { "op": "const", "type": "u32", "value": 12 } } },
+    { "let": "over", "expr": { "op": "ltu", "left": { "op": "var", "name": "limit" }, "right": { "op": "var", "name": "low" } } },
+    { "let": "score", "expr": { "op": "select", "cond": { "op": "var", "name": "over" }, "then": { "op": "var", "name": "limit" }, "else": { "op": "var", "name": "low" } } }
+  ]
+}
