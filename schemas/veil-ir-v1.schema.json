@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ryosk7/AppVeil/schemas/veil-ir-v1.schema.json",
+  "title": "AppVeil Veil IR v1 (research prototype)",
+  "description": "Structural schema for the uint32 expression IR. The code validator additionally enforces semantic limits listed in x-appveil-semantic-constraints. Conformance to this schema is not a security property.",
+  "x-appveil-semantic-constraints": [
+    "At most 256 expression nodes in total",
+    "Nesting depth at most 32"
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "inputType", "outputType", "expression"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "inputType": { "const": "uint32" },
+    "outputType": { "const": "uint32" },
+    "expression": { "$ref": "#/$defs/node" }
+  },
+  "$defs": {
+    "uint32": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "node": {
+      "oneOf": [
+        { "$ref": "#/$defs/input" },
+        { "$ref": "#/$defs/const" },
+        { "$ref": "#/$defs/unary" },
+        { "$ref": "#/$defs/binary" }
+      ]
+    },
+    "input": {
+      "type": "object", "additionalProperties": false, "required": ["op"],
+      "properties": { "op": { "const": "input" } }
+    },
+    "const": {
+      "type": "object", "additionalProperties": false, "required": ["op", "value"],
+      "properties": { "op": { "const": "const" }, "value": { "$ref": "#/$defs/uint32" } }
+    },
+    "unary": {
+      "type": "object", "additionalProperties": false, "required": ["op", "arg"],
+      "properties": { "op": { "enum": ["not"] }, "arg": { "$ref": "#/$defs/node" } }
+    },
+    "binary": {
+      "type": "object", "additionalProperties": false, "required": ["op", "left", "right"],
+      "properties": {
+        "op": { "enum": ["add", "sub", "xor", "and", "or", "mul", "shl", "shr", "ushr"] },
+        "left": { "$ref": "#/$defs/node" },
+        "right": { "$ref": "#/$defs/node" }
+      }
+    }
+  }
+}
