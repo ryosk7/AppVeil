@@ -5,7 +5,7 @@
 - All user documents and proprietary computation execute locally on the owner's Olares One (no SaaS back-end).
 - Buyer may have host root access and can export image layers, instrument Node.js, observe memory and modify binaries.
 - AI-assisted reverse engineering and black-box imitation are included in the adversary model.
-- Standard Olares One Core Ultra 9 275HX (Arrow Lake) does not provide SGX/TDX host-resistant confidential enclaves. Independently verify device firmware and OS configuration before security claims.
+- Standard Olares One (Core Ultra 9 275HX) exposes **no SGX, TDX or TME** to the OS, and ships with Secure Boot disabled, kernel lockdown `none`, no IMA runtime policy and an identity (passthrough) IOMMU default. It has a TPM 2.0. Device evidence: [`OLARES_ONE_HW_EVIDENCE_2026-11-24.md`](OLARES_ONE_HW_EVIDENCE_2026-11-24.md), collected read-only with `scripts/collect-hw-evidence.sh`. Re-collect after any firmware or OS update before relying on it.
 - No software-only technique guarantees that owner-controlled CPU-executed code will remain secret from the owner.
 
 ## Architecture
@@ -37,4 +37,4 @@ Preserve OAC/Helm packaging, Market installation and Merchant paid app licensing
 
 ## Current status
 
-Architecture and benchmark measurement scaffolding exist. No root-level enclave isolation or AI reconstruction experiment has been validated. Hardware-backed local confidentiality needs a hardware boundary outside the standard Olares One CPU, with nontrivial integration and physical threat-model limits.
+Architecture and benchmark measurement scaffolding exist. No root-level enclave isolation or AI reconstruction experiment has been validated. Hardware-backed local confidentiality needs a hardware boundary outside the standard Olares One CPU, with nontrivial integration and physical threat-model limits. On Olares One itself, option C is **unsupported** (evidence above), and a policy that requires it must fail closed.
