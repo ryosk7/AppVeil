@@ -19,6 +19,7 @@ import { compileTypeScriptSubset } from '../src/ts-frontend.mjs';
 import { optimizeVeilIRv2 } from '../src/veil-opt.mjs';
 import { build, writeBuild, verifyBuild } from '../src/build-manifest.mjs';
 import { checkEquivalence } from '../src/veil-smt.mjs';
+import { verifyChartFile, dockerResolver } from '../src/chart-verify.mjs';
 import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
@@ -56,6 +57,13 @@ async function main() {
   const { command, positionals, values } = parseCommandLine(argv);
   const [target] = positionals;
   const json = values.json === true, strict = values.strict === true;
+  if (command === 'verify-chart') {
+    const affectedFile = values.affected ?? new URL('../data/known-affected-images.json', import.meta.url);
+    const r = verifyChartFile(target, { affected: JSON.parse(readFileSync(affectedFile, 'utf8')), requireDigest: values['require-digest'] === true, resolve: values.resolve ? dockerResolver : null });
+    console.log(JSON.stringify(r, null, 2));
+    if (!r.pass) process.exitCode = EXIT.POLICY;
+    return;
+  }
   if (command === 'check-equivalence') {
     const timeoutSec = values.timeout === undefined ? 60 : parseUint32Decimal(values.timeout, '--timeout');
     const r = checkEquivalence(JSON.parse(readFileSync(target, 'utf8')), JSON.parse(readFileSync(positionals[1], 'utf8')), { timeoutSec });

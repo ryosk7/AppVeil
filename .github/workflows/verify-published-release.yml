@@ -1,0 +1,80 @@
+name: Verify published release (chart + image + layers)
+# Fail-closed gate for an already-published Olares release: the chart's image references, then the exact
+# server image's final filesystem AND every layer. Metadata-only artifacts; nothing from the image is run.
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: 'proofy or shipboardai'
+        required: true
+        type: choice
+        options: [proofy, shipboardai]
+      tag:
+        description: 'Release tag in ryosk7/<app>-releases, e.g. v2.6.19'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate inputs
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag must look like v1.2.3"; exit 1; }
+      - name: Download published chart
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP: ${{ inputs.app }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$TAG" -R "ryosk7/${APP}-releases" -p '*.tgz' -D chart
+          ls -la chart
+      - name: Verify chart image references (resolve tags to digests, compare with known-affected list)
+        run: |
+          set -o pipefail
+          node bin/appveil.mjs verify-chart chart/*.tgz --resolve | tee chart-verify.json
+      - name: Pull exact server image referenced by the chart
+        run: |
+          IMAGE=$(node -e 'const r=require("./chart-verify.json"); const s=r.images.find(i=>i.source==="values.yaml:image.server"); if(!s) process.exit(1); console.log(s.ref)')
+          [[ "$IMAGE" =~ ^ghcr[.]io/ryosk7/ ]] || { echo "unexpected server image $IMAGE"; exit 1; }
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker pull "$IMAGE"
+          docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' | tee image-digests.json
+      - name: Final-filesystem first-party source exposure policy
+        run: |
+          set -o pipefail
+          node bin/appveil.mjs inspect-image "$IMAGE" --json > image-audit.json
+          node bin/appveil.mjs verify-image-report image-audit.json | tee image-policy.json
+      - name: Layer audit (deleted and overwritten files, config and history) with the same policy
+        run: |
+          set -o pipefail
+          node bin/appveil.mjs inspect-image "$IMAGE" --layers --json > image-layers.json
+          node -e 'const r=require("./image-layers.json"); if(!r.complete){console.error("layer scan incomplete");process.exit(1)}'
+          node bin/appveil.mjs verify-image-report image-layers.json | tee layer-policy.json
+      - name: Summary (counts only)
+        if: always()
+        run: |
+          node -e '
+            const read=f=>{try{return require("./"+f)}catch{return null}};
+            const c=read("chart-verify.json"), p=read("image-policy.json"), l=read("layer-policy.json"), L=read("image-layers.json");
+            const by={}; for (const f of L?.findings??[]) by[f.rule+":"+(f.finalFilesystem??"config")]=(by[f.rule+":"+(f.finalFilesystem??"config")]||0)+1;
+            console.log(JSON.stringify({chartPass:c?.pass, chartProblems:c?.problems, imagePolicyPass:p?.pass, imageViolations:p?.violations?.length, layerPolicyPass:l?.pass, layerViolations:l?.violations?.length, layerFindings:by}, null, 2));'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verified-release-${{ inputs.app }}-${{ inputs.tag }}
+          path: |
+            chart-verify.json
+            image-digests.json
+            image-policy.json
+            layer-policy.json
+          if-no-files-found: warn
+          retention-days: 7

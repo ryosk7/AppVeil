@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "source": "docs/PUBLISHED_RELEASE_VERIFICATION_2026-11-19.md",
+  "note": "Published images whose exported filesystem contained first-party source maps with embedded sources. A chart referencing any of these must not be announced as fixed.",
+  "digests": [
+    { "digest": "sha256:d3a192a4aed14cb91b9963469c9af7071ffd3668a51eb3482895971a10d91345", "app": "Proofy", "refs": ["ghcr.io/ryosk7/proofy:2.6.18", "ghcr.io/ryosk7/patentproof:2.6.18"] },
+    { "digest": "sha256:cb3134ef90b3953c9f1dc0af0955bbae817955723e60e1eb6b36a0fb81ea0eb7", "app": "Shipboard AI", "refs": ["ghcr.io/ryosk7/shipboardai:0.4.35"] }
+  ]
+}
