@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/image-audit-auto.yml'
       - 'src/inspect.mjs'
+      - 'src/secret-patterns.mjs'
+      - 'src/oci-layers.mjs'
       - 'test/embedded-map.test.mjs'
   workflow_dispatch:
 permissions:
@@ -39,7 +41,7 @@ jobs:
           node bin/appveil.mjs inspect-image "$IMAGE" --json > image-audit.json
           # Exit 2 (policy FAIL) is an expected snapshot outcome; exit 1 (execution or format error) must fail the job.
           node bin/appveil.mjs verify-image-report image-audit.json > image-policy.json || test $? -eq 2
-          node -e 'const p=require("./image-policy.json"); const f=require("./image-audit.json").findings; console.log(JSON.stringify({pass:p.pass,firstPartyViolations:p.violations.length,allMaps:f.filter(x=>x.rule==="SOURCE_MAP").length,firstPartyEmbeddedSources:f.filter(x=>x.rule==="EMBEDDED_SOURCE_CONTENT").length}));'
+          node -e 'const p=require("./image-policy.json"); const f=require("./image-audit.json").findings; const secrets={}; for (const x of f) if (x.rule.startsWith("SECRET_")||x.rule==="CONTENT_SCAN_INCOMPLETE") secrets[x.rule]=(secrets[x.rule]||0)+1; console.log(JSON.stringify({pass:p.pass,firstPartyViolations:p.violations.length,allMaps:f.filter(x=>x.rule==="SOURCE_MAP").length,firstPartyEmbeddedSources:f.filter(x=>x.rule==="EMBEDDED_SOURCE_CONTENT").length,secretFindingsByRule:secrets}));'
       - uses: actions/upload-artifact@v4
         if: always()
         with:

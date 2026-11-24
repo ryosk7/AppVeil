@@ -19,7 +19,7 @@ const FAKE = {
   npm: 'np' + 'm_' + rep('a1B2', 9),
   stripe: 'sk' + '_live_' + rep('9z', 12)
 };
-const one = (text, rule) => scanSecrets('f.txt', Buffer.from(text)).filter(f => f.rule === rule);
+const one = (text, rule, file = 'f.txt') => scanSecrets(file, Buffer.from(text)).filter(f => f.rule === rule);
 
 test('detects each high-signal pattern with line numbers and never emits the value', () => {
   const cases = [
@@ -46,9 +46,26 @@ test('benign look-alikes are not flagged', () => {
     'AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE', 'password=changeme', 'API_KEY=${API_KEY}', 'TOKEN=<your-token-here>',
     'SECRET=xxxxxxxxxxxx', 'password: process.env.DB_PASSWORD', 'token=os.environ', 'const t={accessToken:e.accessToken,password:this.password};',
     'placeholder:"Enter password"', 'passwordMinLength=12', 'ghp_short', 'GITHUB_TOKEN: secrets.GITHUB_TOKEN',
-    'tokenizer = new Tokenizer()'
+    'tokenizer = new Tokenizer()',
+    // Observed false-positive shapes from vendor and first-party code in real images (values synthetic).
+    'const r={tokens:countTokens(text),maxTokens:DEFAULT_MAX_TOKENS};', 'privateKeyEncoding: {type:"pkcs8"}', 'this.tokenizer.state = TokenizerState.DATA_STATE',
+    'input_tokens_details: Usage.InputTokensDetails', 'token: tokens[0]', 'password: z.string()', 'apiKey: options.apiKey', 'passwd=$(getpass)',
+    'Password: [success=1 default=ignore]', 'confirmPassword: e.target.value', 'const token = "short"',
+    'fetch(u,{credentials:"same-origin"})', "app.use(jwt({ secret: 'my-to-be-secret' }))", 'PWD="/Users/someone"'
   ];
-  for (const text of benign) assert.deepEqual(scanSecrets('f.js', Buffer.from(text)), [], `false positive: ${text}`);
+  // Unquoted expressions are benign in source code (but would be candidate values in config files).
+  for (const file of ['f.js', 'f.d.ts', 'f.mts', 'f.cts']) assert.deepEqual(scanSecrets(file, Buffer.from('credential: ApiKeyCredential1;')), [], file);
+  for (const text of benign) for (const file of ['f.js', 'f.d.ts', 'f.mts', 'f.cts', 'f.conf']) assert.deepEqual(scanSecrets(file, Buffer.from(text)), [], `false positive in ${file}: ${text}`);
+});
+
+test('in source code only quoted string literals count; config files allow unquoted values', () => {
+  assert.equal(one('const apiKey = "k9F2mQ8xL4pR7tW1";', 'SECRET_ASSIGNMENT', 'a.js').length, 1);
+  assert.equal(one("export const DB_PASSWORD = 's3cr3t-Passw0rd-42';", 'SECRET_ASSIGNMENT', 'a.ts').length, 1);
+  assert.equal(one('const apiKey = k9F2mQ8xL4pR7tW1;', 'SECRET_ASSIGNMENT', 'a.js').length, 0);
+  assert.equal(one('apiKey: k9F2mQ8xL4pR7tW1', 'SECRET_ASSIGNMENT', 'config.yaml').length, 1);
+  assert.equal(one('API_KEY=k9F2mQ8xL4pR7tW1', 'SECRET_ASSIGNMENT', '.env').length, 1);
+  assert.equal(one('db:\n  password: Hx7Kq2mZ9pLw\n', 'SECRET_ASSIGNMENT', 'c.yaml').length, 1, 'nested YAML key');
+  assert.equal(one('const apiKey = "k9F2mQ8x L4pR7tW1";', 'SECRET_ASSIGNMENT', 'a.js').length, 0, 'unterminated literal');
 });
 
 test('counts repeated matches, caps line list, skips binary and oversized files', () => {
