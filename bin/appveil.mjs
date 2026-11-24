@@ -12,6 +12,7 @@ import { runLocalAiTrial } from '../src/local-ai-trial.mjs';
 import { checkOlaresValuesFile } from '../src/olares-image-check.mjs';
 import { compileVeilIR, runVeilBytecode, evaluateVeilIR } from '../src/veil-ir.mjs';
 import { recoverInstructionTraceFile } from '../src/red-lab.mjs';
+import { auditImageArchiveFile } from '../src/oci-layers.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
 
@@ -30,6 +31,18 @@ function emit(findings, json, strict) {
     console.log(`\n${findings.length} indicator(s) found. This is not a complete security audit.`);
   }
   if (strict && findings.some(f => severityRank(f.severity) >= severityRank('high'))) process.exitCode = EXIT.POLICY;
+}
+function emitLayerReport(report, json, strict) {
+  if (json) console.log(JSON.stringify(report, null, 2));
+  else {
+    for (const l of report.layers) console.log(`layer ${l.index} ${l.digest} ${l.compression} ${l.status}${l.reason ? ` (${l.reason})` : ''}`);
+    if (!report.findings.length) console.log('No indicators found (NOT a security guarantee).');
+    for (const f of report.findings) console.log(`[${f.severity}] ${f.rule} ${f.layer === undefined ? '' : `layer ${f.layer} `}${f.path} (${f.finalFilesystem ?? 'config'}): ${f.message}`);
+    console.log(`\n${report.findings.length} indicator(s) across ${report.layers.length} layer(s).${report.complete ? '' : ' INCOMPLETE: some layers were not checked.'} This is not a complete security audit.`);
+  }
+  // Under --strict an incomplete scan is an error (not checked is never passed), then high findings are a policy violation.
+  if (strict && !report.complete) throw new Error('Layer scan incomplete: at least one layer was not checked');
+  if (strict && report.findings.some(f => severityRank(f.severity) >= severityRank('high'))) process.exitCode = EXIT.POLICY;
 }
 async function main() {
   if (!argv.length || ['-h', '--help', 'help'].includes(argv[0])) return usage();
@@ -82,10 +95,17 @@ async function main() {
     if (!lstatSync(root).isDirectory()) throw new Error('Target must be a directory');
     return emit(scanTree(root), json, strict);
   }
+  if (command === 'inspect-image-archive') return emitLayerReport(auditImageArchiveFile(target), json, strict);
   // inspect-image
   const temp = mkdtempSync(path.join(tmpdir(), 'appveil-'));
   let container = '';
   try {
+    if (values.layers) {
+      // `docker save` exports layers and config without running anything from the image.
+      const archive = path.join(temp, 'image.tar');
+      run('docker', ['save', '-o', archive, target]);
+      return emitLayerReport(auditImageArchiveFile(archive), json, strict);
+    }
     // This never starts the image. Do not execute untrusted image programs.
     container = run('docker', ['create', target]);
     run('docker', ['cp', `${container}:/`, path.join(temp, 'rootfs')]);

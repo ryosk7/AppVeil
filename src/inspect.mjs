@@ -10,6 +10,38 @@ const rules = [
   { id: 'PRIVATE_KEY', severity: 'critical', test: p => /\.(?:pem|key|p12|pfx)$/i.test(p), message: 'Potential private key or certificate material' },
   { id: 'NPMRC', severity: 'medium', test: p => /(^|\/)\.npmrc$/i.test(p), message: 'npm configuration shipped; check token settings' }
 ];
+export const FIRST_PARTY_MAP_ROOTS = Object.freeze(['app/apps/server/dist/', 'app/packages/contracts/dist/', 'app/packages/db/dist/', 'app/web/']);
+const isFirstPartyMap = rel => FIRST_PARTY_MAP_ROOTS.some(prefix => rel.startsWith(prefix));
+const MAP_LIMIT = 8 * 1024 * 1024, JS_LIMIT = 2 * 1024 * 1024;
+const oversizeMap = rel => ({ rule: 'SOURCE_MAP_OVERSIZE', severity: 'medium', path: rel, message: 'Map too large for embedded-source check' });
+
+/** Path-only rules shared by directory and image-layer scans. */
+export function classifyPath(rel) {
+  return rules.filter(rule => rule.test(rel)).map(rule => ({ rule: rule.id, severity: rule.severity, path: rel, message: rule.message }));
+}
+/** Maximum bytes to read for content rules on this path, or 0 when no content rule applies. */
+export function contentLimit(rel) {
+  if (rel.endsWith('.map') && isFirstPartyMap(rel)) return MAP_LIMIT;
+  if (/\.(?:js|mjs|cjs)$/i.test(rel)) return JS_LIMIT;
+  return 0;
+}
+/** Content rules. Output never includes file contents. */
+export function classifyContent(rel, bytes) {
+  const findings = [];
+  if (rel.endsWith('.map') && isFirstPartyMap(rel)) {
+    if (bytes.length > MAP_LIMIT) return [oversizeMap(rel)];
+    try {
+      const json = JSON.parse(bytes.toString('utf8'));
+      if (Array.isArray(json.sourcesContent) && json.sourcesContent.some(v => typeof v === 'string' && v.length > 0)) {
+        findings.push({ rule: 'EMBEDDED_SOURCE_CONTENT', severity: 'critical', path: rel, message: 'Application source map includes nonempty sourcesContent (contents omitted)' });
+      }
+    } catch { findings.push({ rule: 'SOURCE_MAP_UNPARSED', severity: 'medium', path: rel, message: 'Map metadata could not be parsed' }); }
+  }
+  if (/\.(?:js|mjs|cjs)$/i.test(rel) && bytes.length <= JS_LIMIT && /sourceMappingURL\s*=/.test(bytes.toString('utf8'))) {
+    findings.push({ rule: 'SOURCEMAP_REFERENCE', severity: 'medium', path: rel, message: 'JavaScript references a source map' });
+  }
+  return findings;
+}
 export function scanTree(root, { maxFiles = 100000, maxDepth = 40 } = {}) {
   const findings = [];
   const stack = [{ dir: root, relative: '', depth: 0 }];
@@ -29,26 +61,18 @@ export function scanTree(root, { maxFiles = 100000, maxDepth = 40 } = {}) {
       }
       if (!entry.isFile()) continue;
       if (++files > maxFiles) { findings.push({ rule: 'SCAN_LIMIT', severity: 'high', path: rel, message: 'Maximum file count reached' }); return findings; }
-      for (const rule of rules) if (rule.test(rel)) findings.push({ rule: rule.id, severity: rule.severity, path: rel, message: rule.message });
-      // Only inspect our known app build directories. Never include embedded source text in output.
-      if (rel.endsWith('.map') && ['app/apps/server/dist/', 'app/packages/contracts/dist/', 'app/packages/db/dist/', 'app/web/'].some(prefix => rel.startsWith(prefix))) {
-        try {
-          const mapFile = path.join(dir, entry.name);
-          if (lstatSync(mapFile).size <= 8 * 1024 * 1024) {
-            const json = JSON.parse(readFileSync(mapFile, 'utf8'));
-            if (Array.isArray(json.sourcesContent) && json.sourcesContent.some(v => typeof v === 'string' && v.length > 0)) {
-              findings.push({ rule: 'EMBEDDED_SOURCE_CONTENT', severity: 'critical', path: rel, message: 'Application source map includes nonempty sourcesContent (contents omitted)' });
-            }
-          } else findings.push({ rule: 'SOURCE_MAP_OVERSIZE', severity: 'medium', path: rel, message: 'Map too large for embedded-source check' });
-        } catch { findings.push({ rule: 'SOURCE_MAP_UNPARSED', severity: 'medium', path: rel, message: 'Map metadata could not be parsed' }); }
-      }
-      if (/\.(?:js|mjs|cjs)$/i.test(rel)) {
-        try {
-          const file = path.join(dir, entry.name);
-          if (lstatSync(file).size > 2 * 1024 * 1024) continue;
-          const contents = readFileSync(file, 'utf8');
-          if (/sourceMappingURL\s*=/.test(contents)) findings.push({ rule: 'SOURCEMAP_REFERENCE', severity: 'medium', path: rel, message: 'JavaScript references a source map' });
-        } catch { /* File may not be readable. The scan is best-effort. */ }
+      findings.push(...classifyPath(rel));
+      const file = path.join(dir, entry.name);
+      const limit = contentLimit(rel);
+      if (limit) {
+        const firstPartyMap = rel.endsWith('.map') && isFirstPartyMap(rel);
+        const unreadable = () => { if (firstPartyMap) findings.push({ rule: 'SOURCE_MAP_UNPARSED', severity: 'medium', path: rel, message: 'Map metadata could not be parsed' }); };
+        let size, contents;
+        try { size = lstatSync(file).size; } catch { unreadable(); continue; }
+        if (size > limit) { if (firstPartyMap) findings.push(oversizeMap(rel)); continue; }
+        // A first-party map that cannot be read is reported. Other unreadable files are skipped (best-effort scan).
+        try { contents = readFileSync(file); } catch { unreadable(); continue; }
+        findings.push(...classifyContent(rel, contents));
       }
     }
   }
