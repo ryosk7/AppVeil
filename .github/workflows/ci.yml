@@ -18,10 +18,12 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: node --version
+      - name: Install wasm-ld and z3 (Wasm baseline and SMT equivalence proofs must actually run)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lld z3 && z3 --version
       - run: npm test
+        env:
+          APPVEIL_REQUIRE_SMT: '1'
       - run: node bin/appveil.mjs --help
-      - name: Install wasm-ld so the Wasm baseline is actually produced
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lld
       - name: Reproducible artifact baseline (not AI resistance)
         env:
           # CI must not silently omit the Wasm comparison.

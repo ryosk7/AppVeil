@@ -18,6 +18,7 @@ import { compileVeilIRv2, evaluateVeilIRv2, loadVeilBytecodeV2, executeVeilBytec
 import { compileTypeScriptSubset } from '../src/ts-frontend.mjs';
 import { optimizeVeilIRv2 } from '../src/veil-opt.mjs';
 import { build, writeBuild, verifyBuild } from '../src/build-manifest.mjs';
+import { checkEquivalence } from '../src/veil-smt.mjs';
 import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
@@ -55,6 +56,15 @@ async function main() {
   const { command, positionals, values } = parseCommandLine(argv);
   const [target] = positionals;
   const json = values.json === true, strict = values.strict === true;
+  if (command === 'check-equivalence') {
+    const timeoutSec = values.timeout === undefined ? 60 : parseUint32Decimal(values.timeout, '--timeout');
+    const r = checkEquivalence(JSON.parse(readFileSync(target, 'utf8')), JSON.parse(readFileSync(positionals[1], 'utf8')), { timeoutSec });
+    console.log(JSON.stringify(r, null, 2));
+    // equivalent = 0, counterexample = 2 (policy: programs differ), not-checked = 1 (could not decide).
+    if (r.result === 'counterexample') process.exitCode = EXIT.POLICY;
+    else if (r.result !== 'equivalent') process.exitCode = EXIT.ERROR;
+    return;
+  }
   if (command === 'build') {
     const seed = values.seed === undefined ? 0 : parseUint32Decimal(values.seed, '--seed');
     const kind = /\.ts$/i.test(target) ? 'ts' : 'ir';
@@ -73,7 +83,8 @@ async function main() {
     const seed = values.seed === undefined ? 0 : parseUint32Decimal(values.seed, '--seed');
     const compiled = compileTypeScriptSubset(readFileSync(target, 'utf8'));
     // --optimize runs the optimizer, which aborts unless translation validation passes.
-    const opt = values.optimize ? optimizeVeilIRv2(compiled.ir) : null;
+    if (values.prove && !values.optimize) throw new UsageError('--prove requires --optimize');
+    const opt = values.optimize ? optimizeVeilIRv2(compiled.ir, { prove: values.prove === true }) : null;
     const ir = opt ? opt.ir : compiled.ir;
     console.log(JSON.stringify(values.bytecode ? compileVeilIRv2(ir, { seed }) : { functionName: compiled.functionName, outputMap: compiled.outputMap, ir, ...(opt ? { optimization: opt.stats } : {}) }, null, 2));
     return;
