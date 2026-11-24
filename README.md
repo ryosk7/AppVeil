@@ -25,6 +25,16 @@ node bin/appveil.mjs inspect-image ghcr.io/ryosk7/shipboardai:0.4.33 --strict
 
 In strict mode, high/critical indicators exit with status 2. An empty report is **not** proof of security. Scan your own images; image extraction requires disk space and access to Docker.
 
+### Exit status contract
+
+| Status | Meaning |
+| --- | --- |
+| `0` | Success, and no documented policy violation |
+| `1` | Usage error (unknown command or option, missing option value, wrong argument count), malformed input, or execution error (for example Docker or Ollama unreachable) |
+| `2` | Documented policy violation: `--strict` with high/critical findings, `verify-image-report` FAIL, `check-olares-image` FAIL |
+
+Every command follows this contract (`test/cli-contract.test.mjs`). An error is never reported as `0` or `2`, and exit `0` is not proof of security.
+
 ## New research and audit tools
 
 ```bash

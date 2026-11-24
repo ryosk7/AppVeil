@@ -37,7 +37,8 @@ jobs:
         run: |
           docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' > image-digests.json
           node bin/appveil.mjs inspect-image "$IMAGE" --json > image-audit.json
-          node bin/appveil.mjs verify-image-report image-audit.json > image-policy.json || true
+          # Exit 2 (policy FAIL) is an expected snapshot outcome; exit 1 (execution or format error) must fail the job.
+          node bin/appveil.mjs verify-image-report image-audit.json > image-policy.json || test $? -eq 2
           node -e 'const p=require("./image-policy.json"); const f=require("./image-audit.json").findings; console.log(JSON.stringify({pass:p.pass,firstPartyViolations:p.violations.length,allMaps:f.filter(x=>x.rule==="SOURCE_MAP").length,firstPartyEmbeddedSources:f.filter(x=>x.rule==="EMBEDDED_SOURCE_CONTENT").length}));'
       - uses: actions/upload-artifact@v4
         if: always()
