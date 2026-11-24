@@ -4,9 +4,27 @@ Experimental open-source tooling and research for protecting commercial TypeScri
 
 > **Security status: experimental.** AppVeil v0.1.0 does not make code unreadable or prevent reverse engineering. An Olares One administrator can generally inspect distributed container files and running processes. No guarantee of complete secrecy is made.
 
+## What exists, and what it does and does not establish
+
+Terminology follows [`agent.md`](agent.md) §2. A row marked *prototype* or *not tested* makes no protective claim.
+
+| Capability | Term (agent.md) | Status | Evidence |
+| --- | --- | --- | --- |
+| Final-filesystem and **per-layer** image scanning (deleted and overwritten files, config/history secret names), secret patterns with metadata-only output | Artifact hygiene | implemented | [RELEASE_GATE](docs/RELEASE_GATE.md), [re-audit 2026-11-25](docs/PUBLISHED_RELEASE_VERIFICATION_2026-11-25.md) |
+| Chart image-reference, digest and version verification, plus a fail-closed release workflow | Artifact hygiene | implemented | [CHART_VERIFICATION](docs/CHART_VERIFICATION.md) |
+| Veil IR v1/v2, VM v1/v2, Wasm backend, restricted-TypeScript frontend, optimizer | — (compiler correctness) | prototype | [VEIL_IR_V2](research/VEIL_IR_V2.md), [TS_FRONTEND](research/TS_FRONTEND.md), [VEIL_OPT](research/VEIL_OPT.md) |
+| Fuzzing, schemas, SMT equivalence (optimizer and backends proven for all inputs on test corpora), reproducible builds | — (verification) | implemented | [SMT_EQUIVALENCE](research/SMT_EQUIVALENCE.md), [REPRODUCIBLE_BUILDS](research/REPRODUCIBLE_BUILDS.md) |
+| Opcode permutation, VM interpretation, Wasm encoding | Software hardening | **fails**: static and dynamic attacks recover 100% | [RED_LAB_BASELINE](research/RED_LAB_BASELINE.md) |
+| Black-box imitation baseline (non-AI) | Functional imitation resistance | measured; independent of encoding | [RED_LAB_BLACKBOX](research/RED_LAB_BLACKBOX.md) |
+| Local AI reconstruction trials | AI attack benchmark | pipeline only; **not run** (no local model) | [LOCAL_AI_TRIAL](docs/LOCAL_AI_TRIAL.md) |
+| Confidential execution on Olares One | Confidential execution | **unsupported**: no SGX/TDX/TME | [HW evidence](docs/OLARES_ONE_HW_EVIDENCE_2026-11-24.md) |
+| Policy engine, authenticated IPC, hardware survey, key-extraction lab | Confidential execution (Track C) | prototype in **draft PRs awaiting independent review** | #52, #54, #55, #56 |
+
+Research status per task: [`research/ROADMAP.md`](research/ROADMAP.md).
+
 ## Current feature: inspect released artifacts
 
-AppVeil starts by addressing a measurable risk: accidentally shipping source files, source maps and configuration material in Docker images. It does **not** yet implement code obfuscation, a secure runtime, licensing, confidential computing, or OAC generation.
+AppVeil started with a measurable risk: accidentally shipping source files, source maps and configuration material in Docker images. It does **not** implement a secure runtime, licensing, confidential computing or OAC generation. Its compiler and VM research shows that encoding-based hardening is recovered by trivial attacks.
 
 Requirements: Node.js 20+; Docker for image inspection.
 
