@@ -86,6 +86,9 @@ test('CLI exit contract: 0 success, 1 usage/input/execution error, 2 policy viol
       [['run-ir', example, '17', '18'], 1],
       [['run-ir', example, '-1'], 1],
       [['red-lab-decode', join(d, 'broken.json')], 1],
+      [['red-lab-run', 'static-decompile', '--trials', '2', '--holdout', '20'], 0],
+      [['red-lab-run', 'no-such-attack'], 1],
+      [['red-lab-run', 'static-decompile', '--trials', '0'], 1],
       // Docker is unreachable (empty PATH): an execution error, never success or policy.
       [['inspect-image', 'example.invalid/none:1'], 1],
       [['local-ai-trial', join(d, 'a.js'), 'model'], 1]

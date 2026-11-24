@@ -12,3 +12,17 @@ node bin/appveil.mjs red-lab-decode /tmp/score-42.json
 The decoded operation trace is an attack baseline, **not** a successful decompilation to original TypeScript source. It nevertheless falsifies any claim that changing opcode numbers alone conceals program semantics.
 
 Future defensive mechanisms must beat meaningful attacker controls: static trace extraction, runtime instrumentation, AI-assisted function recovery and black-box imitation, each with independent evaluation inputs and fixed budgets. Keep raw private binaries and outputs out of public benchmark storage.
+
+## Full IR recovery (issue #12)
+
+`appveil red-lab-run static-decompile` uses the Red Lab harness (`research/RED_LAB_HARNESS.md`). Each trial generates a hidden challenge, compiles it with a per-trial opcode permutation, gives the attacker only the artifact, and judges the attacker's submitted IR on 1,000 hidden holdout inputs.
+
+The attacker (`src/red-lab-attacks.mjs`) reads the shipped opcode table and inlines the SSA registers back into an expression tree. It uses no defender code.
+
+| Setting | Result |
+| --- | --- |
+| 200 trials, size 12, seed 1, 1,000 holdout inputs each | **200/200 exact recoveries** (Wilson 95%: 0.981–1.000), mean accuracy 1.0 |
+
+The recovered IR is **structurally identical** to the reference, not merely equivalent on the holdout set (`test/red-lab-static.test.mjs`). Attack cost: milliseconds per artifact, with no AI and no root.
+
+**Conclusion:** Veil bytecode v1 provides no protection against a static attacker. Future formats must be evaluated against this baseline before any protective claim is made.
