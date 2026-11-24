@@ -5,7 +5,7 @@
  */
 const SUPPORTED = new Set(['$schema', '$id', 'title', 'description', '$defs', '$ref', 'type', 'const', 'enum',
   'properties', 'required', 'additionalProperties', 'items', 'prefixItems', 'minItems', 'maxItems', 'uniqueItems',
-  'minimum', 'maximum', 'pattern', 'maxLength', 'oneOf']);
+  'minimum', 'maximum', 'pattern', 'maxLength', 'oneOf', 'propertyNames', 'minProperties', 'maxProperties']);
 const typeOf = v => v === null ? 'null' : Array.isArray(v) ? 'array' : Number.isInteger(v) ? 'integer' : typeof v;
 const deepEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -38,9 +38,12 @@ export function validateSchema(schema, value, { maxDepth = 256 } = {}) {
     if (t === 'object') {
       for (const r of s.required ?? []) if (!Object.hasOwn(v, r)) errors.push(`${path}: missing required ${r}`);
       for (const [k, sub] of Object.entries(s.properties ?? {})) if (Object.hasOwn(v, k)) check(sub, v[k], `${path}/${k}`, depth + 1);
-      if (s.additionalProperties === false) {
-        for (const k of Object.keys(v)) if (!Object.hasOwn(s.properties ?? {}, k)) errors.push(`${path}: unexpected property ${k}`);
-      }
+      const extra = Object.keys(v).filter(k => !Object.hasOwn(s.properties ?? {}, k));
+      if (s.additionalProperties === false) for (const k of extra) errors.push(`${path}: unexpected property ${k}`);
+      else if (s.additionalProperties && typeof s.additionalProperties === 'object') for (const k of extra) check(s.additionalProperties, v[k], `${path}/${k}`, depth + 1);
+      if (s.propertyNames) for (const k of Object.keys(v)) check(s.propertyNames, k, `${path}/<key ${k}>`, depth + 1);
+      if ('minProperties' in s && Object.keys(v).length < s.minProperties) errors.push(`${path}: fewer than ${s.minProperties} properties`);
+      if ('maxProperties' in s && Object.keys(v).length > s.maxProperties) errors.push(`${path}: more than ${s.maxProperties} properties`);
     }
     if (t === 'array') {
       if ('minItems' in s && v.length < s.minItems) errors.push(`${path}: fewer than ${s.minItems} items`);

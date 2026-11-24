@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ryosk7/AppVeil/schemas/veil-bytecode-v2.schema.json",
+  "title": "AppVeil experimental register bytecode v2 (research prototype)",
+  "description": "Structural schema for VM v2 bytecode. The opcode table ships in the artifact and is NOT secret. Conformance is not a security property.",
+  "x-appveil-semantic-constraints": [
+    "instructions.length === registers + 1 and the single ret is last",
+    "Instruction i (except ret) writes register i (SSA); operands reference earlier registers",
+    "Operand count matches the decoded operation (load-*/not/bnot 1, select 3, binary 2)",
+    "Register kinds: u32-only ops never take bool registers; select takes a bool condition and same-kind branches",
+    "ret lists one register per output and each register's kind matches the output type"
+  ],
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "version", "inputs", "outputs", "opcodes", "registers", "instructions"],
+  "properties": {
+    "format": { "const": "appveil-experimental-bytecode" },
+    "version": { "const": 2 },
+    "inputs": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "enum": ["u32", "bool"] } },
+    "outputs": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "type": "object", "additionalProperties": false, "required": ["name", "type"], "properties": { "name": { "type": "string", "pattern": "^[a-z_][a-z0-9_]{0,31}$" }, "type": { "enum": ["u32", "bool"] } } } },
+    "opcodes": { "type": "array", "minItems": 20, "maxItems": 20, "uniqueItems": true, "items": { "enum": ["load-input", "load-const", "load-bool", "add", "sub", "xor", "and", "or", "mul", "shl", "shr", "ushr", "not", "bnot", "eq", "ne", "ltu", "leu", "select", "ret"] } },
+    "registers": { "type": "integer", "minimum": 1, "maximum": 65552 },
+    "instructions": { "type": "array", "minItems": 2, "maxItems": 65553, "items": { "type": "array", "minItems": 1, "maxItems": 17, "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } } },
+    "seed": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+    "irDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "disclaimer": { "type": "string", "maxLength": 200 }
+  }
+}
