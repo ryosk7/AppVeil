@@ -22,10 +22,10 @@ export const COMMANDS = Object.freeze({
   'verify-image-report': { positionals: ['image-audit.json'], options: {} },
   'local-ai-trial': { positionals: ['synthetic-artifact', 'installed-ollama-model'], options: {} },
   'check-olares-image': { positionals: ['values.yaml'], options: { previous: { type: 'string' }, 'require-digest': { type: 'boolean' } } },
-  'compile-ir': { positionals: ['ir.json'], options: { seed: { type: 'string' } } },
+  'compile-ir': { positionals: ['ir.json'], options: { seed: { type: 'string' }, optimize: { type: 'boolean' } } },
   'run-ir': { positionals: ['ir.json', 'uint32-input'], options: {} },
   'compile-ir-wasm': { positionals: ['ir.json', 'out.wasm'], options: {} },
-  'compile-ts': { positionals: ['module.ts'], options: { bytecode: { type: 'boolean' }, seed: { type: 'string' } } },
+  'compile-ts': { positionals: ['module.ts'], options: { bytecode: { type: 'boolean' }, seed: { type: 'string' }, optimize: { type: 'boolean' } } },
   'run-bytecode': { positionals: ['bytecode.json', 'uint32-input'], options: {} },
   'red-lab-decode': { positionals: ['bytecode.json'], options: {} },
   'red-lab-run': { positionals: ['attack'], options: { trials: { type: 'string' }, size: { type: 'string' }, seed: { type: 'string' }, holdout: { type: 'string' }, queries: { type: 'string' }, defender: { type: 'string' }, full: { type: 'boolean' } } }
