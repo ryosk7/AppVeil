@@ -33,7 +33,21 @@ The opcode table is a Fisher–Yates permutation driven by xorshift32. The seed 
 
 Reproduce with `node --expose-gc scripts/veil-ir-bench.mjs 200000`. The script reports resource cost only, never confidentiality.
 
-COST_TABLE_PLACEHOLDER
+Measured at commit `93ec7ff` on an Apple M2 (arm64) running macOS 27.2 (Darwin 27.2.0) with Node.js v23.11.0. The workload is `examples/veil-ir-score.json` compiled with seed 42: 446 bytes of bytecode, canonical digest `05ed9151d2f65d52…`. There were 200,000 xorshift-seeded inputs, and each figure is the median of 7 runs after 3 warm-up runs. The script was run 3 times; the table shows the range.
+
+| Metric | Plain JS (`oracle`) | IR evaluator | VM (`runVeilBytecode`) |
+| --- | --- | --- | --- |
+| ns per call | 2.1–2.3 | 208–235 | 639–666 |
+| Slowdown vs plain JS | 1× | ~99–103× | ~285–312× |
+| Compile time | — | — | ~0.0065 ms per program |
+| Heap delta after 200k VM calls | — | — | ~1.6 MiB (before GC) |
+
+Limitations:
+- This is one tiny expression on one machine.
+- The plain-JS baseline is likely inlined by the JIT.
+- Each VM call re-validates the whole envelope, including the opcode-table `Set` and `includes` checks. A validate-once API would shrink the VM overhead, but that is not done here.
+- Native, Wasm and minified-JS backends are not compared yet; see research gate 3.
+- None of these numbers say anything about confidentiality.
 
 ## Research gates
 
