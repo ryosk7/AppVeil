@@ -192,7 +192,7 @@ export function summarize(results) {
   const denom = 1 + z * z / n, centre = (p + z * z / (2 * n)) / denom, half = n ? (z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / denom : 0;
   return {
     trials: n, exactRecoveries: k, successRate: p,
-    wilson95: n ? [Math.max(0, centre - half), Math.min(1, centre + half)] : null,
+    wilson95: n ? [Math.max(0, centre - half), Math.min(1, centre + half)].map(v => Math.round(v * 1e6) / 1e6) : null,
     meanAccuracy: n ? results.reduce((s, r) => s + r.accuracy, 0) / n : 0
   };
 }

@@ -26,3 +26,15 @@ The attacker (`src/red-lab-attacks.mjs`) reads the shipped opcode table and inli
 The recovered IR is **structurally identical** to the reference, not merely equivalent on the holdout set (`test/red-lab-static.test.mjs`). Attack cost: milliseconds per artifact, with no AI and no root.
 
 **Conclusion:** Veil bytecode v1 provides no protection against a static attacker. Future formats must be evaluated against this baseline before any protective claim is made.
+
+## Dynamic tracing (issue #13, VM backend)
+
+`appveil red-lab-run dynamic-trace` models a host-root debugger. It attaches the V8 inspector (`node:inspector`) in-process, without modifying defender code. It sets breakpoints in the shipped, readable runtime, and for each executed step it records the operand register indices and the register file over 24 inputs (6 edge values plus 18 pseudo-random). The operation at each step is inferred **only from the observed values** (`out == input`, constant output, `~x`, or which binary operation maps `(x, y)` to `out`). The opcode table and the bytecode format are never read; a test asserts this.
+
+| Setting | Result |
+| --- | --- |
+| 100 trials, size 12, seed 1, 1,000 holdout inputs each | **100/100 exact recoveries** (Wilson 95%: 0.963–1.000) |
+
+**Conclusion:** even if the opcode table were hidden or encrypted at rest, a host-root attacker who can observe execution recovers the computation. Any confidentiality claim needs an execution boundary the host cannot instrument (Track C), not a different encoding.
+
+The Wasm backend will be traced once it exists (issue #9).

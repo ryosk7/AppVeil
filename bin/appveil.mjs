@@ -52,7 +52,7 @@ async function main() {
   const json = values.json === true, strict = values.strict === true;
   if (command === 'red-lab-run') {
     const num = (name, dflt) => values[name] === undefined ? dflt : parseUint32Decimal(values[name], `--${name}`);
-    const report = runRedLab({ attack: target, trials: num('trials', 20), size: num('size', 8), seed: num('seed', 1), holdoutCount: num('holdout', 1000), queries: num('queries', 0) });
+    const report = await runRedLab({ attack: target, trials: num('trials', 20), size: num('size', 8), seed: num('seed', 1), holdoutCount: num('holdout', 1000), queries: num('queries', 0) });
     // Per-trial results only with --full; the summary is the headline. Success here means the defense failed.
     console.log(JSON.stringify(values.full ? report : { ...report, results: undefined }, null, 2));
     return;
