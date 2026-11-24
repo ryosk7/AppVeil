@@ -25,6 +25,7 @@ export const COMMANDS = Object.freeze({
   'compile-ir': { positionals: ['ir.json'], options: { seed: { type: 'string' } } },
   'run-ir': { positionals: ['ir.json', 'uint32-input'], options: {} },
   'compile-ir-wasm': { positionals: ['ir.json', 'out.wasm'], options: {} },
+  'compile-ts': { positionals: ['module.ts'], options: { bytecode: { type: 'boolean' }, seed: { type: 'string' } } },
   'run-bytecode': { positionals: ['bytecode.json', 'uint32-input'], options: {} },
   'red-lab-decode': { positionals: ['bytecode.json'], options: {} },
   'red-lab-run': { positionals: ['attack'], options: { trials: { type: 'string' }, size: { type: 'string' }, seed: { type: 'string' }, holdout: { type: 'string' }, queries: { type: 'string' }, defender: { type: 'string' }, full: { type: 'boolean' } } }

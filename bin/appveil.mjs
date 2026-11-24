@@ -15,6 +15,7 @@ import { recoverInstructionTraceFile } from '../src/red-lab.mjs';
 import { auditImageArchiveFile } from '../src/oci-layers.mjs';
 import { compileVeilIRToWasm, wasmDigest } from '../src/veil-wasm.mjs';
 import { compileVeilIRv2, evaluateVeilIRv2, loadVeilBytecodeV2, executeVeilBytecodeV2 } from '../src/veil-ir-v2.mjs';
+import { compileTypeScriptSubset } from '../src/ts-frontend.mjs';
 import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
@@ -52,6 +53,12 @@ async function main() {
   const { command, positionals, values } = parseCommandLine(argv);
   const [target] = positionals;
   const json = values.json === true, strict = values.strict === true;
+  if (command === 'compile-ts') {
+    const seed = values.seed === undefined ? 0 : parseUint32Decimal(values.seed, '--seed');
+    const { ir, outputMap, functionName } = compileTypeScriptSubset(readFileSync(target, 'utf8'));
+    console.log(JSON.stringify(values.bytecode ? compileVeilIRv2(ir, { seed }) : { functionName, outputMap, ir }, null, 2));
+    return;
+  }
   if (command === 'compile-ir-wasm') {
     const bytes = compileVeilIRToWasm(JSON.parse(readFileSync(target, 'utf8')));
     writeFileSync(positionals[1], bytes, { flag: 'wx' }); // never overwrite an existing file
