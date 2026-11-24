@@ -6,25 +6,31 @@
 
 ```
 C -> S  HELLO  : eph_c (X25519, 32 B) | nonce_c (32 B) | id_c (Ed25519 SPKI, 44 B)
-S -> C  REPLY  : eph_s (32 B) | nonce_s (32 B) | sig_s = Ed25519_S(T)
-C -> S  FINISH : sig_c = Ed25519_C(T || sig_s)
+S -> C  REPLY  : eph_s (32 B) | nonce_s (32 B) | sig_s = Ed25519_S("appveil-ipc-v1 server sig" || T)
+C -> S  FINISH : sig_c = Ed25519_C("appveil-ipc-v1 client sig" || T || sig_s)
 T = "appveil-ipc-v1 transcript" || HELLO frame || eph_s || nonce_s || id_c || id_s
 keys = HKDF-SHA256(ikm = X25519(eph_c, eph_s), salt = SHA-256(T || sig_s), info = "appveil-ipc-v1 keys") -> 32 B c→s, 32 B s→c
 ```
 
 - Both identities are **pinned**. The client pins the server key, and the server keeps an allow-list of client keys. An unpinned client is rejected at HELLO.
-- Everything either side sends is covered by a signature or by the transcript, so a man-in-the-middle who swaps an ephemeral key, or a client claiming someone else's identity, fails signature verification. A completed handshake cannot be replayed.
+- HELLO and REPLY are bound in full by the transcript and the signatures; role-specific labels separate the two signatures. Handshake frames must carry `seq = 0`. A man-in-the-middle who swaps an ephemeral key, or a client claiming someone else's identity, fails signature verification.
+- `finish()` (client) and `complete()` (server) are **single-use**. The client drops its ephemeral private key after `finish()`. The server marks a handshake used only **after** FINISH verifies, so a forged FINISH cannot burn the legitimate one.
+- The pin check at HELLO is a **filter, not authentication**: anyone can send a pinned public key and make the server do one DH and one signature. FINISH is what authenticates the client, so the transport must bound the number of pending accepts.
+- Rejecting low-order X25519 points, such as an all-zero shared secret, relies on OpenSSL refusing them. Both sides turn that refusal into `MALFORMED`.
+- There is no explicit key confirmation from server to client; the client learns that the handshake succeeded from the first valid server record.
+- Identities must be 44-byte Ed25519 SPKI DER, and both sides check this.
 
 ## Records
 
 `header = version (1) | type (1) | seq (8, big-endian) | length (4)`, followed by AES-256-GCM ciphertext and tag. The header is the AAD, and the IV is `0^4 || seq`.
 
-- The receiver accepts only `seq == expected`, which rejects **replay, reordering and dropped records**.
-- After an authentication failure the channel closes permanently.
+- The receiver accepts only `seq == expected`, which rejects **replay, reordering and dropped records that are followed by a later record**.
+- **Truncation:** `sealClose()` sends an authenticated `CLOSE` record. Only after one arrives is `peerClosed` true. A stream that ends without it must be treated as truncated.
+- **Any** protocol error (AEAD, sequence, type, version, length) closes the channel permanently.
 - The payload limit is 1 MiB. Oversized lengths, including lying length fields, are rejected before decryption.
 - Unknown versions and record types are rejected.
 - The two directions use separate keys, so a record cannot be reflected back to its sender.
-- Sequence exhaustion forces a rekey, which here means a new handshake.
+- At most 2^24 records per key and direction, about 2^40 AES blocks at 1 MiB each, well under the AES-GCM bound. After that, `EXHAUSTED` requires a new handshake.
 
 ## Threat levels: what each one does and does not cover
 
@@ -54,3 +60,16 @@ keys = HKDF-SHA256(ikm = X25519(eph_c, eph_s), salt = SHA-256(T || sig_s), info 
 - Is key separation correct between the two directions and between sessions?
 - Is the IV unique for every key? (The `seq` is never reused because the channel closes on exhaustion.)
 - Is there any path that accepts data before FINISH has been verified?
+
+## Independent review (PR #54)
+
+An AI reviewer agent, independent of the implementing session, gave the verdict "approve with fixes". It found no unknown key-share, misbinding or KCI attack, and confirmed transcript binding and the direction and session separation. Fixed:
+1. Client `finish()` was reusable, which reused AES-GCM nonces and exposed plaintext.
+2. End-of-stream truncation went undetected, because `CLOSE` was defined but unused; non-AEAD errors also left the channel open.
+3. A raw OpenSSL error was raised on an invalid server ephemeral key.
+4. A forged FINISH could burn the legitimate one.
+5. The record limit was effectively unbounded.
+6. Input, key-type and handshake-`seq` validation was missing.
+7. Spec wording overclaimed in places.
+
+Each fix has a regression test in `test/local-ipc.test.mjs`. A human security review is still recommended.
