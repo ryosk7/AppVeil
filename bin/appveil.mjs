@@ -13,6 +13,7 @@ import { checkOlaresValuesFile } from '../src/olares-image-check.mjs';
 import { compileVeilIR, runVeilBytecode, evaluateVeilIR } from '../src/veil-ir.mjs';
 import { recoverInstructionTraceFile } from '../src/red-lab.mjs';
 import { auditImageArchiveFile } from '../src/oci-layers.mjs';
+import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
 
@@ -49,6 +50,13 @@ async function main() {
   const { command, positionals, values } = parseCommandLine(argv);
   const [target] = positionals;
   const json = values.json === true, strict = values.strict === true;
+  if (command === 'red-lab-run') {
+    const num = (name, dflt) => values[name] === undefined ? dflt : parseUint32Decimal(values[name], `--${name}`);
+    const report = runRedLab({ attack: target, trials: num('trials', 20), size: num('size', 8), seed: num('seed', 1), holdoutCount: num('holdout', 1000), queries: num('queries', 0) });
+    // Per-trial results only with --full; the summary is the headline. Success here means the defense failed.
+    console.log(JSON.stringify(values.full ? report : { ...report, results: undefined }, null, 2));
+    return;
+  }
   if (command === 'red-lab-decode') {
     console.log(JSON.stringify(recoverInstructionTraceFile(target), null, 2));
     return;
