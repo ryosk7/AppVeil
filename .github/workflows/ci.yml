@@ -27,11 +27,17 @@ jobs:
           # CI must not silently omit the Wasm comparison.
           APPVEIL_REQUIRE_WASM: '1'
         run: bash scripts/benchmark-local.sh
+      - name: Backend matrix (correctness gate across JS, VM, Veil Wasm, native, clang Wasm)
+        run: |
+          node scripts/backend-matrix.mjs > backend-matrix.json
+          node -e 'const r=require("./backend-matrix.json"); console.log(JSON.stringify(r.rows.map(x=>[x.backend,x.status,x.nsPerCall??x.reason]))); if (r.rows.some(x=>x.status!=="measured")) process.exit(1);'
       - name: Check every benchmark target is accounted for
         run: |
           node -e 'const r=require("./benchmark-results.json"); const t=r.samples.map(s=>s.type); console.log(JSON.stringify({produced:t,notChecked:r.notChecked})); if(!t.includes("wasm")) process.exit(1);'
       - uses: actions/upload-artifact@v4
         with:
           name: synthetic-artifact-benchmark-node${{ matrix.node }}
-          path: benchmark-results.json
+          path: |
+            benchmark-results.json
+            backend-matrix.json
           retention-days: 7
