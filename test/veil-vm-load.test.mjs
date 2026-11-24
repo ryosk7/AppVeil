@@ -53,3 +53,17 @@ test('step limit fails closed and options are validated', () => {
   assert.equal(DEFAULT_MAX_STEPS, 1_000_000);
   for (const bad of [-1, 2 ** 32, 1.5]) assert.throws(() => executeVeilBytecode(h, bad), /Input must be uint32/);
 });
+
+test('regression (found by fuzzing, seed 22): sparse arrays are rejected, never coerced to load-input or register 0', () => {
+  const bc = compileVeilIR(wrap({ op: 'mul', left: { op: 'input' }, right: { op: 'const', value: 3 } }), { seed: 5 });
+  const holeyTable = structuredClone(bc);
+  delete holeyTable.opcodes[holeyTable.opcodes.indexOf('mul')];
+  assert.equal(holeyTable.opcodes.length, 13);
+  assert.throws(() => loadVeilBytecode(holeyTable), /Invalid opcode table/);
+  const holeyOperand = structuredClone(bc);
+  delete holeyOperand.instructions[2][2]; // [mul, 2, <hole>, 1]
+  assert.throws(() => loadVeilBytecode(holeyOperand), /Invalid instruction/);
+  const holeyInstructions = structuredClone(bc);
+  delete holeyInstructions.instructions[1];
+  assert.throws(() => loadVeilBytecode(holeyInstructions), /Invalid register or instruction count/);
+});

@@ -137,6 +137,12 @@ const VERIFIED = new WeakMap();
 const KIND = Object.freeze({ input: 0, const: 1, add: 2, sub: 3, xor: 4, and: 5, or: 6, mul: 7, shl: 8, shr: 9, ushr: 10, not: 11 });
 const KIND_OF = { 'load-input': KIND.input, 'load-const': KIND.const, add: KIND.add, sub: KIND.sub, xor: KIND.xor, and: KIND.and, or: KIND.or, mul: KIND.mul, shl: KIND.shl, shr: KIND.shr, ushr: KIND.ushr, not: KIND.not };
 export const DEFAULT_MAX_STEPS = 1_000_000;
+/** Array.isArray plus no holes. `some`/`every` skip holes, so sparse arrays must be rejected explicitly. */
+function isDenseArray(v) {
+  if (!Array.isArray(v)) return false;
+  for (let i = 0; i < v.length; i++) if (!(i in v)) return false;
+  return true;
+}
 
 /**
  * Verify a bytecode v1 program once, performing every structural and semantic check, and return an
@@ -148,14 +154,14 @@ export function loadVeilBytecode(program) {
   if ('seed' in program && !WORD(program.seed)) throw new Error('Invalid bytecode seed');
   if ('irDigest' in program && (typeof program.irDigest !== 'string' || !/^[0-9a-f]{64}$/.test(program.irDigest))) throw new Error('Invalid bytecode irDigest');
   if ('disclaimer' in program && (typeof program.disclaimer !== 'string' || program.disclaimer.length > 200)) throw new Error('Invalid bytecode disclaimer');
-  if (!Array.isArray(program.opcodes) || program.opcodes.length !== OPERATIONS.length || new Set(program.opcodes).size !== OPERATIONS.length || program.opcodes.some(op => !OPERATIONS.includes(op))) throw new Error('Invalid opcode table');
-  if (!Number.isInteger(program.registers) || program.registers < 1 || program.registers > 256 || !Array.isArray(program.instructions) || program.instructions.length !== program.registers + 1) throw new Error('Invalid register or instruction count');
+  if (!isDenseArray(program.opcodes) || program.opcodes.length !== OPERATIONS.length || new Set(program.opcodes).size !== OPERATIONS.length || program.opcodes.some(op => !OPERATIONS.includes(op))) throw new Error('Invalid opcode table');
+  if (!Number.isInteger(program.registers) || program.registers < 1 || program.registers > 256 || !isDenseArray(program.instructions) || program.instructions.length !== program.registers + 1) throw new Error('Invalid register or instruction count');
   const n = program.registers;
   const kind = new Uint8Array(n), a = new Uint32Array(n), b = new Uint32Array(n);
   let ret = -1;
   for (let i = 0; i < program.instructions.length; i++) {
     const inst = program.instructions[i];
-    if (!Array.isArray(inst) || !Number.isInteger(inst[0]) || inst[0] < 0 || inst[0] >= program.opcodes.length) throw new Error('Invalid instruction');
+    if (!isDenseArray(inst) || !Number.isInteger(inst[0]) || inst[0] < 0 || inst[0] >= program.opcodes.length) throw new Error('Invalid instruction');
     const [opcode, dst, ...args] = inst;
     const op = program.opcodes[opcode];
     if (op === 'ret') {
@@ -164,6 +170,8 @@ export function loadVeilBytecode(program) {
       break;
     }
     if (i === program.instructions.length - 1 || dst !== i) throw new Error('Noncanonical or missing return');
+    // Defense in depth: never let an unmapped operation coerce to kind 0 (load-input).
+    if (!Object.hasOwn(KIND_OF, op)) throw new Error('Invalid opcode table');
     kind[i] = KIND_OF[op];
     if (op === 'load-input') { if (args.length) throw new Error('Invalid input instruction'); }
     else if (op === 'load-const') { if (args.length !== 1 || !WORD(args[0])) throw new Error('Invalid constant'); a[i] = args[0]; }
