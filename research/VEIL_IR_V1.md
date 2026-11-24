@@ -59,6 +59,24 @@ Limitations:
 - Native, Wasm and minified-JS backends are not compared yet; see research gate 3.
 - None of these numbers say anything about confidentiality.
 
+### Validate-once VM (issue #5), measured at `f3c8689`
+
+Measured on the same machine and with the same method as the table above.
+
+**Hypothesis:** most of the VM overhead comes from re-validating the envelope on every call. **Result: confirmed for the load-once path; regression for the verify-each-call path.**
+
+| Path | ns per call (3 runs) | Slowdown vs plain JS |
+| --- | --- | --- |
+| Plain JS (`oracle`) | 2.1–2.2 | 1× |
+| IR evaluator | 235–252 | ~114× |
+| `loadVeilBytecode` once, then `executeVeilBytecode` | 58–61 | ~27–29× |
+| `runVeilBytecode` (verifies on every call) | 1332–1360 | ~616–647× |
+
+- Load-once execution is about **11× faster** than the previous VM (639–666 ns at `93ec7ff`).
+- `loadVeilBytecode` costs about 0.001 ms per program, and compile time is unchanged at about 0.007 ms.
+- **Negative finding:** the backward-compatible `runVeilBytecode` is about **2× slower** than before, because it now builds the typed-array program on every call. Callers that execute a program more than once should load it once.
+- Heap deltas measured without a forced GC include transient garbage and are not reported as a memory cost.
+
 ## Research gates
 
 1. Validate semantics: 100% conformance for supported functions on seeded properties and edge cases; develop formal equivalence for a defined subset.
