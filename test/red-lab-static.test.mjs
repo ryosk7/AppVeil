@@ -7,8 +7,8 @@ import { runRedLab } from '../src/red-lab-run.mjs';
 import { createTrial, destroyTrial } from '../src/red-lab-harness.mjs';
 import { compileVeilIR, sha256Canonical } from '../src/veil-ir.mjs';
 
-test('static decompiler recovers the exact reference tree for every seed (expected defense failure)', () => {
-  const r = runRedLab({ attack: 'static-decompile', trials: 40, size: 12, seed: 7, holdoutCount: 300 });
+test('static decompiler recovers the exact reference tree for every seed (expected defense failure)', async () => {
+  const r = await runRedLab({ attack: 'static-decompile', trials: 40, size: 12, seed: 7, holdoutCount: 300 });
   assert.equal(r.summary.exactRecoveries, 40);
   assert.equal(r.summary.meanAccuracy, 1);
   for (const res of r.results) { assert.equal(res.attackClass, 'static'); assert.equal(res.error, null); }
