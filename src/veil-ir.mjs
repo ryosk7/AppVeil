@@ -131,8 +131,18 @@ export function compileVeilIR(ir, { seed = 0 } = {}) {
   instructions.push([opcodes.indexOf('ret'), out]);
   return { format: 'appveil-experimental-bytecode', version: 1, instructions, opcodes, registers: next, seed, irDigest: sha256Canonical(ir), disclaimer: 'Opcode permutation is NOT cryptographic secrecy or confidentiality.' };
 }
-export function runVeilBytecode(program, input) {
-  if (!WORD(input)) throw new TypeError('Input must be uint32');
+// Verified programs are opaque handles. Their decoded form lives only in this module, so callers
+// cannot forge a "verified" program or mutate it after verification.
+const VERIFIED = new WeakMap();
+const KIND = Object.freeze({ input: 0, const: 1, add: 2, sub: 3, xor: 4, and: 5, or: 6, mul: 7, shl: 8, shr: 9, ushr: 10, not: 11 });
+const KIND_OF = { 'load-input': KIND.input, 'load-const': KIND.const, add: KIND.add, sub: KIND.sub, xor: KIND.xor, and: KIND.and, or: KIND.or, mul: KIND.mul, shl: KIND.shl, shr: KIND.shr, ushr: KIND.ushr, not: KIND.not };
+export const DEFAULT_MAX_STEPS = 1_000_000;
+
+/**
+ * Verify a bytecode v1 program once, performing every structural and semantic check, and return an
+ * opaque frozen handle for executeVeilBytecode. Verification is not a security property.
+ */
+export function loadVeilBytecode(program) {
   if (!program || typeof program !== 'object' || Array.isArray(program) || program.format !== 'appveil-experimental-bytecode' || program.version !== 1) throw new Error('Invalid bytecode envelope');
   assertKnownKeys(program, BYTECODE_KEYS, 'bytecode');
   if ('seed' in program && !WORD(program.seed)) throw new Error('Invalid bytecode seed');
@@ -140,26 +150,70 @@ export function runVeilBytecode(program, input) {
   if ('disclaimer' in program && (typeof program.disclaimer !== 'string' || program.disclaimer.length > 200)) throw new Error('Invalid bytecode disclaimer');
   if (!Array.isArray(program.opcodes) || program.opcodes.length !== OPERATIONS.length || new Set(program.opcodes).size !== OPERATIONS.length || program.opcodes.some(op => !OPERATIONS.includes(op))) throw new Error('Invalid opcode table');
   if (!Number.isInteger(program.registers) || program.registers < 1 || program.registers > 256 || !Array.isArray(program.instructions) || program.instructions.length !== program.registers + 1) throw new Error('Invalid register or instruction count');
-  const regs = [];
+  const n = program.registers;
+  const kind = new Uint8Array(n), a = new Uint32Array(n), b = new Uint32Array(n);
+  let ret = -1;
   for (let i = 0; i < program.instructions.length; i++) {
     const inst = program.instructions[i];
     if (!Array.isArray(inst) || !Number.isInteger(inst[0]) || inst[0] < 0 || inst[0] >= program.opcodes.length) throw new Error('Invalid instruction');
     const [opcode, dst, ...args] = inst;
     const op = program.opcodes[opcode];
     if (op === 'ret') {
-      if (i !== program.instructions.length - 1 || args.length || !Number.isInteger(dst) || dst < 0 || dst >= regs.length) throw new Error('Invalid return instruction');
-      return regs[dst];
+      if (i !== program.instructions.length - 1 || args.length || !Number.isInteger(dst) || dst < 0 || dst >= i) throw new Error('Invalid return instruction');
+      ret = dst;
+      break;
     }
     if (i === program.instructions.length - 1 || dst !== i) throw new Error('Noncanonical or missing return');
-    let val;
-    if (op === 'load-input') { if (args.length) throw new Error('Invalid input instruction'); val = input; }
-    else if (op === 'load-const') { if (args.length !== 1 || !WORD(args[0])) throw new Error('Invalid constant'); val = args[0]; }
+    kind[i] = KIND_OF[op];
+    if (op === 'load-input') { if (args.length) throw new Error('Invalid input instruction'); }
+    else if (op === 'load-const') { if (args.length !== 1 || !WORD(args[0])) throw new Error('Invalid constant'); a[i] = args[0]; }
     else {
       const unary = op === 'not';
       if (args.length !== (unary ? 1 : 2) || args.some(r => !Number.isInteger(r) || r < 0 || r >= i)) throw new Error('Invalid register operand');
-      val = apply(op, regs[args[0]], unary ? 0 : regs[args[1]]);
+      a[i] = args[0]; b[i] = unary ? 0 : args[1];
     }
-    regs.push(val);
   }
-  throw new Error('Missing return instruction');
+  if (ret < 0) throw new Error('Missing return instruction');
+  const handle = Object.freeze({ kind: 'appveil-verified-bytecode', version: 1, instructions: n + 1 });
+  // `r` is a scratch register file reused across calls. Safe because execution is synchronous and
+  // never calls user code, so it cannot be re-entered.
+  VERIFIED.set(handle, { n, kind, a, b, ret, r: new Uint32Array(n) });
+  return handle;
+}
+
+/** Execute a handle from loadVeilBytecode. `maxSteps` bounds executed instructions (fail closed). */
+export function executeVeilBytecode(handle, input, { maxSteps = DEFAULT_MAX_STEPS } = {}) {
+  const p = VERIFIED.get(handle);
+  if (!p) throw new TypeError('Not a verified program; call loadVeilBytecode first');
+  if (!WORD(input)) throw new TypeError('Input must be uint32');
+  if (!Number.isSafeInteger(maxSteps) || maxSteps < 1) throw new TypeError('maxSteps must be a positive safe integer');
+  const { n, kind, a, b, ret, r } = p;
+  let steps = 0;
+  for (let i = 0; i < n; i++) {
+    if (++steps > maxSteps) throw new Error('Execution step limit exceeded');
+    const x = r[a[i]], y = r[b[i]];
+    switch (kind[i]) {
+      case 0: r[i] = input; break;
+      case 1: r[i] = a[i]; break;
+      case 2: r[i] = x + y; break;
+      case 3: r[i] = x - y; break;
+      case 4: r[i] = x ^ y; break;
+      case 5: r[i] = x & y; break;
+      case 6: r[i] = x | y; break;
+      case 7: r[i] = Math.imul(x, y); break;
+      case 8: r[i] = x << (y & 31); break;
+      case 9: r[i] = (x | 0) >> (y & 31); break;
+      case 10: r[i] = x >>> (y & 31); break;
+      case 11: r[i] = ~x; break;
+      default: throw new Error('Corrupt verified program');
+    }
+  }
+  if (++steps > maxSteps) throw new Error('Execution step limit exceeded');
+  return r[ret];
+}
+
+/** Verify and execute in one call (backward compatible). Prefer load once + execute many. */
+export function runVeilBytecode(program, input, options) {
+  if (!WORD(input)) throw new TypeError('Input must be uint32');
+  return executeVeilBytecode(loadVeilBytecode(program), input, options);
 }

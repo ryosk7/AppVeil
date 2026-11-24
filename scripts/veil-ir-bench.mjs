@@ -4,7 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import os from 'node:os';
-import { compileVeilIR, runVeilBytecode, evaluateVeilIR, sha256Canonical } from '../src/veil-ir.mjs';
+import { compileVeilIR, runVeilBytecode, evaluateVeilIR, loadVeilBytecode, executeVeilBytecode, sha256Canonical } from '../src/veil-ir.mjs';
 import { oracle } from '../src/reconstruction-eval.mjs';
 
 const N = Number(process.argv[2] ?? 200000);
@@ -27,9 +27,13 @@ const compileMs = time(() => { for (let i = 0; i < 1000; i++) compileVeilIR(ir, 
 const jsMs = time(() => { for (let i = 0; i < N; i++) sink ^= oracle(inputs[i]); });
 const irMs = time(() => { for (let i = 0; i < N; i++) sink ^= evaluateVeilIR(ir, inputs[i]); });
 const vmMs = time(() => { for (let i = 0; i < N; i++) sink ^= runVeilBytecode(program, inputs[i]); });
+const loaded = loadVeilBytecode(program);
+const loadMs = time(() => { for (let i = 0; i < 1000; i++) loadVeilBytecode(program); }) / 1000;
+const vmLoadedMs = time(() => { for (let i = 0; i < N; i++) sink ^= executeVeilBytecode(loaded, inputs[i]); });
+for (let i = 0; i < 1000; i++) if (executeVeilBytecode(loaded, inputs[i]) !== oracle(inputs[i])) throw new Error('VM mismatch; refusing to report timings');
 global.gc?.();
 const before = process.memoryUsage().heapUsed;
-for (let i = 0; i < N; i++) sink ^= runVeilBytecode(program, inputs[i]);
+for (let i = 0; i < N; i++) sink ^= executeVeilBytecode(loaded, inputs[i]);
 const heapDeltaKiB = Math.round((process.memoryUsage().heapUsed - before) / 1024);
 
 let commit = 'unknown';
@@ -41,9 +45,10 @@ console.log(JSON.stringify({
   irDigest: sha256Canonical(ir), bytecodeDigest: sha256Canonical(program), bytecodeBytes: JSON.stringify(program).length,
   iterations: N,
   compileMsPerProgram: +compileMs.toFixed(4),
-  medianMs: { plainJs: +jsMs.toFixed(2), irEvaluator: +irMs.toFixed(2), vm: +vmMs.toFixed(2) },
-  nsPerCall: { plainJs: +(jsMs * 1e6 / N).toFixed(1), irEvaluator: +(irMs * 1e6 / N).toFixed(1), vm: +(vmMs * 1e6 / N).toFixed(1) },
-  slowdownVsPlainJs: { irEvaluator: +(irMs / jsMs).toFixed(1), vm: +(vmMs / jsMs).toFixed(1) },
-  heapDeltaKiBAfterVmRun: heapDeltaKiB, gcExposed: typeof global.gc === 'function',
+  loadMsPerProgram: +loadMs.toFixed(4),
+  medianMs: { plainJs: +jsMs.toFixed(2), irEvaluator: +irMs.toFixed(2), vmVerifyEachCall: +vmMs.toFixed(2), vmLoadOnce: +vmLoadedMs.toFixed(2) },
+  nsPerCall: { plainJs: +(jsMs * 1e6 / N).toFixed(1), irEvaluator: +(irMs * 1e6 / N).toFixed(1), vmVerifyEachCall: +(vmMs * 1e6 / N).toFixed(1), vmLoadOnce: +(vmLoadedMs * 1e6 / N).toFixed(1) },
+  slowdownVsPlainJs: { irEvaluator: +(irMs / jsMs).toFixed(1), vmVerifyEachCall: +(vmMs / jsMs).toFixed(1), vmLoadOnce: +(vmLoadedMs / jsMs).toFixed(1) },
+  heapDeltaKiBAfterLoadOnceVmRun: heapDeltaKiB, gcExposed: typeof global.gc === 'function',
   sink: sink >>> 0
 }, null, 2));
