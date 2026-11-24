@@ -68,4 +68,4 @@ An AI reviewer agent, independent of the implementing session, checked all 16 or
 - TME is not a TEE
 - "quoted" claims were in fact paraphrased
 
-Sources [17]–[22] were added from the review. They were not all re-fetched by the author: verify before relying on them.
+Sources [17]–[22] were added from the review. Every URL returned HTTP 200 on 2026-11-25, and the faulTPM arXiv title was confirmed. Their content was summarized by the reviewer, not re-read in full by the author.
