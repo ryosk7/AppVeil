@@ -20,6 +20,7 @@ import { optimizeVeilIRv2 } from '../src/veil-opt.mjs';
 import { build, writeBuild, verifyBuild } from '../src/build-manifest.mjs';
 import { checkEquivalence } from '../src/veil-smt.mjs';
 import { verifyChartFile, dockerResolver } from '../src/chart-verify.mjs';
+import { auditFirstPartyExposure } from '../src/package-exposure.mjs';
 import { runRedLab } from '../src/red-lab-run.mjs';
 
 import { parseCommandLine, parseUint32Decimal, usageText, UsageError, EXIT } from '../src/cli-args.mjs';
@@ -57,6 +58,18 @@ async function main() {
   const { command, positionals, values } = parseCommandLine(argv);
   const [target] = positionals;
   const json = values.json === true, strict = values.strict === true;
+  if (command === 'audit-package-exposure') {
+    const scopes = values.scope ?? [];
+    const report = auditFirstPartyExposure(realpathSync(target), { scopes });
+    if (json) console.log(JSON.stringify(report, null, 2));
+    else {
+      for (const p of report.packages) console.log(`${p.package}: ${p.jsFiles} js, non-runtime ${JSON.stringify(p.counts)}`);
+      for (const v of report.violations) console.log(`[violation] ${v.rule} ${v.package}/${v.path}`);
+      console.log(`\n${report.pass ? 'PASS' : 'FAIL'}: ${report.violations.length} violation(s). ${report.ceiling}`);
+    }
+    if (strict && !report.pass) process.exitCode = EXIT.POLICY;
+    return;
+  }
   if (command === 'verify-chart') {
     const affectedFile = values.affected ?? new URL('../data/known-affected-images.json', import.meta.url);
     const r = verifyChartFile(target, { affected: JSON.parse(readFileSync(affectedFile, 'utf8')), requireDigest: values['require-digest'] === true, resolve: values.resolve ? dockerResolver : null });
