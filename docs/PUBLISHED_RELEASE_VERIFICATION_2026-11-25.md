@@ -30,11 +30,15 @@ Health on the device, read-only, 2026-11-25:
 - The `migrate` initContainer finished (`applied: none`).
 - The API and worker logged 0 error lines in the last 24 h.
 - The web root returns 200 inside the cluster. `/api/health` returns 401 because identity comes from the Olares gateway.
-- **Not exercised:** authenticated API, worker jobs and web routes. These need the user's browser session; no in-app action was taken.
+- **Authenticated, read-only check in the user's browser session (2026-11-25):**
+  - The app home page (`https://<app>.<zone>/`) renders with the user's recent jobs.
+  - `GET /api/me` → 200 and `GET /api/runs?limit=5` → 200. All page assets returned 200, and the browser console showed no errors.
+  - The recent-runs list shows completed proofing runs, the latest on 2026-11-20, after the 2.6.19 deployment. That indicates the worker processed jobs on this release.
+  - No in-app action was taken: no upload, no new run and no settings change. **Not exercised:** starting a new job, write paths of the API, and downloading results.
 
 ## Status
 
-- **Proofy:** release 2.6.19 meets the release acceptance criteria of `docs/PUBLISHED_RELEASE_VERIFICATION_2026-11-19.md`, except the authenticated end-to-end exercise. It is a new digest, not affected, and both the first-party final-filesystem policy and the layer policy pass. The affected image `sha256:d3a192a4…` (2.6.18 and earlier) remains published and cannot be retracted retroactively.
+- **Proofy:** release 2.6.19 meets the release acceptance criteria of `docs/PUBLISHED_RELEASE_VERIFICATION_2026-11-19.md`. The authenticated routes were checked read-only. Write paths were not exercised, because that would mean taking actions in the user's account. It is a new digest, not affected, and both the first-party final-filesystem policy and the layer policy pass. The affected image `sha256:d3a192a4…` (2.6.18 and earlier) remains published and cannot be retracted retroactively.
 - **Shipboard AI:** **blocked.** The latest chart, v0.4.35, still deploys the affected digest. A new image built from the merged source-map fix (Shipboard-AI-Cloud PR #65) and a new chart release are needed. Then re-run the workflow with `app=shipboardai tag=<new>`.
 
 Passing hygiene checks does not prevent reverse engineering of the shipped JavaScript.
